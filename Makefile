@@ -149,8 +149,6 @@ deploy-frontend: ## Deploy example app to frontend directory (e.g., make deploy-
 	rm -rf frontend/.dev3000/src frontend/.dev3000/mcp-server frontend/.dev3000/www; \
 	rsync -av --exclude='node_modules' --exclude='.next' --exclude='dist' --exclude='.pnpm-store' src mcp-server frontend/.dev3000/; \
 	cp package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json biome.json Makefile docker-compose.yml frontend/.dev3000/; \
-	cp Dockerfile.dev frontend/.dev3000/frontend/Dockerfile.dev; \
-	cp Dockerfile.dev frontend/Dockerfile.dev; \
 	echo "   Note: In production, users would run:"; \
 	echo "   git submodule add https://github.com/automationjp/dev3000 frontend/.dev3000"; \
 	echo ""; \
