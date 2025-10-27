@@ -84,7 +84,7 @@ dev-down: ## Stop dev3000 Docker environment
 	@echo ""
 	@echo "⚠️  Note: Chrome CDP browser is still running"
 	@echo "To close Chrome, close the Chrome window manually or run:"
-	@if grep -qi microsoft /proc/version 2>/dev/null; then \
+	@if [ "$(IS_WSL2)" = "1" ]; then \
 		echo "  powershell.exe -Command \"Get-Process chrome | Where-Object {\$$_.CommandLine -like '*remote-debugging-port*'} | Stop-Process\""; \
 	else \
 		echo "  pkill -f 'chrome.*remote-debugging-port'"; \
@@ -170,7 +170,6 @@ deploy-frontend: ## Deploy example app to frontend directory (e.g., make deploy-
 	echo "   Purpose: Dockerfile.dev references .dev3000 for building dev3000 CLI"; \
 	echo "   Production users: git submodule add https://github.com/automationjp/dev3000 frontend/.dev3000"; \
 	echo "   Development setup: Copy dev3000 source to frontend/.dev3000/"; \
-	mkdir -p frontend/.dev3000/frontend; \
 	rm -rf frontend/.dev3000/src frontend/.dev3000/mcp-server frontend/.dev3000/www; \
 	rsync -av --exclude='node_modules' --exclude='.next' --exclude='dist' --exclude='.pnpm-store' src mcp-server frontend/.dev3000/; \
 	cp package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json biome.json Makefile frontend/.dev3000/; \
@@ -266,7 +265,7 @@ start-chrome-cdp: ## Start Chrome with CDP (auto-detects WSL/Linux/macOS)
 
 stop-chrome-cdp: ## Stop Chrome CDP process
 	@echo "Stopping Chrome CDP..."
-	@if grep -qi microsoft /proc/version 2>/dev/null; then \
+	@if [ "$(IS_WSL2)" = "1" ]; then \
 		powershell.exe -Command "Get-Process chrome | Where-Object {\$$_.CommandLine -like '*remote-debugging-port*'} | Stop-Process" 2>/dev/null; \
 	else \
 		pkill -f 'chrome.*remote-debugging-port' 2>/dev/null; \
