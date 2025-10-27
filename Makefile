@@ -127,6 +127,14 @@ clean-frontend: ## Clear frontend directory (keeps only .keep file)
 
 ## ========== Frontend Deployment ==========
 
+# deploy-frontend: Copies example app to frontend/ and sets up .dev3000 reference
+# The .dev3000 directory simulates how production users would include dev3000 as a git submodule
+# This allows Dockerfile.dev to build dev3000 from the submodule during container builds
+# Process:
+#   1. Copies example app to frontend/ directory (rsync, excluding build outputs)
+#   2. Copies framework-specific docker-compose.yml from docker-reference/ to root (if exists)
+#   3. Creates frontend/.dev3000/ with dev3000 source code (simulates: git submodule add)
+# Production setup: git submodule add https://github.com/automationjp/dev3000 frontend/.dev3000
 deploy-frontend: ## Deploy example app to frontend directory (e.g., make deploy-frontend APP=nextjs16)
 	@if [ -z "$(APP)" ]; then \
 		echo "❌ Error: APP parameter is required"; \

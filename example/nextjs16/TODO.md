@@ -20,7 +20,7 @@ at /_global-error prerendering
 ```
 
 **Impact**:
-- Dev server works fine (http://localhost:3000)
+- Dev server works fine (<http://localhost:3000>)
 - Production builds fail
 - Related to Next.js Issue #82366 (similar bug in Next.js 15.4.5)
 
