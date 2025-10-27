@@ -5,8 +5,7 @@
 ### Completed
 - ✅ Enabled performance optimizations in `next.config.js`:
   - `optimizePackageImports` for React packages
-  - `optimizeCss` for better CSS performance
-  - `optimisticClientCache` for faster navigation
+  - `cssChunking: 'strict'` for better CSS performance (Next.js 16+)
 - ✅ Disabled static export (`output: 'export'`) due to Next.js 16 bugs
 - ✅ Using Turbopack for faster builds
 

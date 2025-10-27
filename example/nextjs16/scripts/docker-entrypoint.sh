@@ -4,6 +4,9 @@ set -e
 # Fix permissions for WSL2 mounted volumes
 chmod -R u+w /app/frontend 2>/dev/null || true
 
+# Change to working directory
+cd /app/frontend || exit 1
+
 echo "Dev3000 Container Starting..."
 echo "Working directory: $(pwd)"
 
@@ -15,13 +18,15 @@ if [ ! -f package.json ]; then
 fi
 
 # Check and install dependencies if needed
-if [ ! -f node_modules/.pnpm/lock.yaml ] && [ ! -f node_modules/.bin/next ]; then
+# Only check for the Next.js binary as the primary signal of successful installation
+if [ ! -f node_modules/.bin/next ]; then
   echo "📦 Installing dependencies (first run)..."
   # Configure pnpm to use container temp directories
   pnpm config set store-dir /tmp/.pnpm-store
   pnpm config set cache-dir /tmp/.pnpm-cache
   # Install with config to avoid WSL2 permission issues
-  pnpm install --config.package-import-method=hardlink --no-lockfile || exit 1
+  # Using lockfile for reproducible builds
+  pnpm install --config.package-import-method=hardlink || exit 1
   echo "✅ Dependencies installed"
 else
   echo "✅ Dependencies already installed"

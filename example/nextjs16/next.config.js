@@ -19,13 +19,12 @@ const nextConfig = {
     buildActivityPosition: 'bottom-right'
   },
 
-  // Experimental features for performance optimization
+  // Performance optimizations
   experimental: {
+    // Optimize package imports for better tree-shaking
     optimizePackageImports: ['react', 'react-dom'],
-    // Enable optimistic client cache for faster navigation
-    optimisticClientCache: true,
-    // Enable CSS chunking for better performance
-    optimizeCss: true,
+    // Enable CSS chunking for better performance (Next.js 16+)
+    cssChunking: 'strict',
   },
 
   // Logging configuration
