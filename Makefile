@@ -142,13 +142,21 @@ deploy-frontend: ## Deploy example app to frontend directory (e.g., make deploy-
 	echo "📦 Deploying example/$(APP) to frontend/..."; \
 	rm -rf frontend; \
 	mkdir -p frontend; \
-	rsync -av --exclude='node_modules' --exclude='.next' --exclude='out' --exclude='.pnpm-store' example/$(APP)/ frontend/; \
+	rsync -av --exclude='node_modules' --exclude='.next' --exclude='out' --exclude='.pnpm-store' --exclude='docker-reference' example/$(APP)/ frontend/; \
+	echo ""; \
+	echo "🔧 Copying framework-specific docker-compose.yml..."; \
+	if [ -f "example/$(APP)/docker-reference/docker-compose.yml" ]; then \
+		cp example/$(APP)/docker-reference/docker-compose.yml docker-compose.yml; \
+		echo "✅ Copied example/$(APP)/docker-reference/docker-compose.yml to root"; \
+	else \
+		echo "⚠️  No docker-reference/docker-compose.yml found for $(APP), using existing root docker-compose.yml"; \
+	fi; \
 	echo ""; \
 	echo "🔗 Setting up frontend/.dev3000 (dev3000 reference)..."; \
 	mkdir -p frontend/.dev3000/frontend; \
 	rm -rf frontend/.dev3000/src frontend/.dev3000/mcp-server frontend/.dev3000/www; \
 	rsync -av --exclude='node_modules' --exclude='.next' --exclude='dist' --exclude='.pnpm-store' src mcp-server frontend/.dev3000/; \
-	cp package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json biome.json Makefile docker-compose.yml frontend/.dev3000/; \
+	cp package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json biome.json Makefile frontend/.dev3000/; \
 	echo "   Note: In production, users would run:"; \
 	echo "   git submodule add https://github.com/automationjp/dev3000 frontend/.dev3000"; \
 	echo ""; \
