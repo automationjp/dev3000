@@ -1,0 +1,112 @@
+# Dev3000 Development Dockerfile
+# This Dockerfile builds dev3000 and runs it with the user's frontend application
+#
+# Directory structure (user's project):
+#   /app/frontend/          ← User's Next.js app
+#   /app/frontend/.dev3000/ ← dev3000 repository (git submodule)
+
+FROM node:20-alpine AS base
+
+# Install system dependencies
+RUN apk add --no-cache \
+    curl \
+    git \
+    lsof \
+    && rm -rf /var/cache/apk/*
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@9.15.2 --activate
+
+# Build dev3000 stage
+FROM base AS dev3000-builder
+WORKDIR /build
+
+# Copy dev3000 source (.dev3000 directory will be mounted or copied)
+COPY .dev3000/package.json .dev3000/pnpm-lock.yaml .dev3000/pnpm-workspace.yaml ./
+COPY .dev3000/mcp-server/package.json ./mcp-server/
+
+# Install dev3000 dependencies
+RUN pnpm install --frozen-lockfile || pnpm install
+
+# Copy dev3000 source code
+COPY .dev3000/src ./src
+COPY .dev3000/mcp-server ./mcp-server
+COPY .dev3000/tsconfig.json .dev3000/biome.json ./
+
+# Build dev3000 CLI
+RUN pnpm run build
+
+# Build mcp-server (Next.js app)
+WORKDIR /build/mcp-server
+RUN pnpm run build
+
+# Development stage
+FROM base AS development
+WORKDIR /app/frontend
+
+# Copy built dev3000 from builder
+COPY --from=dev3000-builder /build/dist /usr/local/lib/dev3000/dist
+COPY --from=dev3000-builder /build/mcp-server/.next /usr/local/lib/dev3000/mcp-server/.next
+COPY --from=dev3000-builder /build/mcp-server/package.json /usr/local/lib/dev3000/mcp-server/
+COPY --from=dev3000-builder /build/mcp-server/next.config.mjs /usr/local/lib/dev3000/mcp-server/
+COPY --from=dev3000-builder /build/mcp-server/public /usr/local/lib/dev3000/mcp-server/public
+COPY --from=dev3000-builder /build/mcp-server/start-production.mjs /usr/local/lib/dev3000/mcp-server/
+COPY --from=dev3000-builder /build/package.json /usr/local/lib/dev3000/
+COPY --from=dev3000-builder /build/node_modules /usr/local/lib/dev3000/node_modules
+
+# Create symlink for dev3000 command
+RUN ln -s /usr/local/lib/dev3000/dist/cli.js /usr/local/bin/dev3000 && \
+    ln -s /usr/local/lib/dev3000/dist/cli.js /usr/local/bin/d3k && \
+    chmod +x /usr/local/bin/dev3000 /usr/local/bin/d3k
+
+# Expose ports
+EXPOSE 3000 3684
+
+# Environment variables
+ENV NODE_ENV=development \
+    CHOKIDAR_USEPOLLING=true \
+    WATCHPACK_POLLING=true \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PNPM_HOME=/tmp/pnpm \
+    TMPDIR=/tmp
+
+# Create entrypoint script
+RUN echo '#!/bin/sh' > /entrypoint.sh && \
+    echo 'set -e' >> /entrypoint.sh && \
+    echo '' >> /entrypoint.sh && \
+    echo '# Fix permissions for WSL2 mounted volumes' >> /entrypoint.sh && \
+    echo 'chmod -R u+w /app/frontend 2>/dev/null || true' >> /entrypoint.sh && \
+    echo '' >> /entrypoint.sh && \
+    echo 'echo "Dev3000 Container Starting..."' >> /entrypoint.sh && \
+    echo 'echo "Working directory: $(pwd)"' >> /entrypoint.sh && \
+    echo '' >> /entrypoint.sh && \
+    echo '# Check if package.json exists' >> /entrypoint.sh && \
+    echo 'if [ ! -f package.json ]; then' >> /entrypoint.sh && \
+    echo '  echo "Error: No package.json found in /app/frontend"' >> /entrypoint.sh && \
+    echo '  echo "Please ensure your frontend app is properly mounted"' >> /entrypoint.sh && \
+    echo '  exit 1' >> /entrypoint.sh && \
+    echo 'fi' >> /entrypoint.sh && \
+    echo '' >> /entrypoint.sh && \
+    echo '# Check and install dependencies if needed' >> /entrypoint.sh && \
+    echo 'if [ ! -f node_modules/.pnpm/lock.yaml ] && [ ! -f node_modules/.bin/next ]; then' >> /entrypoint.sh && \
+    echo '  echo "📦 Installing dependencies (first run)..."' >> /entrypoint.sh && \
+    echo '  # Configure pnpm to use container temp directories' >> /entrypoint.sh && \
+    echo '  pnpm config set store-dir /tmp/.pnpm-store' >> /entrypoint.sh && \
+    echo '  pnpm config set cache-dir /tmp/.pnpm-cache' >> /entrypoint.sh && \
+    echo '  # Install with config to avoid WSL2 permission issues' >> /entrypoint.sh && \
+    echo '  pnpm install --config.package-import-method=hardlink --no-lockfile || exit 1' >> /entrypoint.sh && \
+    echo '  echo "✅ Dependencies installed"' >> /entrypoint.sh && \
+    echo 'else' >> /entrypoint.sh && \
+    echo '  echo "✅ Dependencies already installed"' >> /entrypoint.sh && \
+    echo 'fi' >> /entrypoint.sh && \
+    echo '' >> /entrypoint.sh && \
+    echo '# Remove stale lock file' >> /entrypoint.sh && \
+    echo 'rm -f /tmp/dev3000-*.lock' >> /entrypoint.sh && \
+    echo '' >> /entrypoint.sh && \
+    echo '# Start dev3000' >> /entrypoint.sh && \
+    echo 'echo "Starting dev3000..."' >> /entrypoint.sh && \
+    echo 'exec node /usr/local/lib/dev3000/dist/cli.js "$@"' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD []
