@@ -70,43 +70,9 @@ ENV NODE_ENV=development \
     PNPM_HOME=/tmp/pnpm \
     TMPDIR=/tmp
 
-# Create entrypoint script
-RUN echo '#!/bin/sh' > /entrypoint.sh && \
-    echo 'set -e' >> /entrypoint.sh && \
-    echo '' >> /entrypoint.sh && \
-    echo '# Fix permissions for WSL2 mounted volumes' >> /entrypoint.sh && \
-    echo 'chmod -R u+w /app/frontend 2>/dev/null || true' >> /entrypoint.sh && \
-    echo '' >> /entrypoint.sh && \
-    echo 'echo "Dev3000 Container Starting..."' >> /entrypoint.sh && \
-    echo 'echo "Working directory: $(pwd)"' >> /entrypoint.sh && \
-    echo '' >> /entrypoint.sh && \
-    echo '# Check if package.json exists' >> /entrypoint.sh && \
-    echo 'if [ ! -f package.json ]; then' >> /entrypoint.sh && \
-    echo '  echo "Error: No package.json found in /app/frontend"' >> /entrypoint.sh && \
-    echo '  echo "Please ensure your frontend app is properly mounted"' >> /entrypoint.sh && \
-    echo '  exit 1' >> /entrypoint.sh && \
-    echo 'fi' >> /entrypoint.sh && \
-    echo '' >> /entrypoint.sh && \
-    echo '# Check and install dependencies if needed' >> /entrypoint.sh && \
-    echo 'if [ ! -f node_modules/.pnpm/lock.yaml ] && [ ! -f node_modules/.bin/next ]; then' >> /entrypoint.sh && \
-    echo '  echo "📦 Installing dependencies (first run)..."' >> /entrypoint.sh && \
-    echo '  # Configure pnpm to use container temp directories' >> /entrypoint.sh && \
-    echo '  pnpm config set store-dir /tmp/.pnpm-store' >> /entrypoint.sh && \
-    echo '  pnpm config set cache-dir /tmp/.pnpm-cache' >> /entrypoint.sh && \
-    echo '  # Install with config to avoid WSL2 permission issues' >> /entrypoint.sh && \
-    echo '  pnpm install --config.package-import-method=hardlink --no-lockfile || exit 1' >> /entrypoint.sh && \
-    echo '  echo "✅ Dependencies installed"' >> /entrypoint.sh && \
-    echo 'else' >> /entrypoint.sh && \
-    echo '  echo "✅ Dependencies already installed"' >> /entrypoint.sh && \
-    echo 'fi' >> /entrypoint.sh && \
-    echo '' >> /entrypoint.sh && \
-    echo '# Remove stale lock file' >> /entrypoint.sh && \
-    echo 'rm -f /tmp/dev3000-*.lock' >> /entrypoint.sh && \
-    echo '' >> /entrypoint.sh && \
-    echo '# Start dev3000' >> /entrypoint.sh && \
-    echo 'echo "Starting dev3000..."' >> /entrypoint.sh && \
-    echo 'exec node /usr/local/lib/dev3000/dist/cli.js "$@"' >> /entrypoint.sh && \
-    chmod +x /entrypoint.sh
+# Copy and setup entrypoint script
+COPY scripts/docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD []
