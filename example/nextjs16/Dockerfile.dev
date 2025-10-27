@@ -26,7 +26,13 @@ COPY .dev3000/package.json .dev3000/pnpm-lock.yaml .dev3000/pnpm-workspace.yaml 
 COPY .dev3000/mcp-server/package.json ./mcp-server/
 
 # Install dev3000 dependencies
-RUN pnpm install --frozen-lockfile || pnpm install
+# Note: Using frozen-lockfile for reproducibility with fallback for development flexibility
+# For production builds, remove the fallback to enforce deterministic installs
+RUN pnpm install --frozen-lockfile || { \
+    echo "⚠️  Warning: Frozen lockfile install failed, falling back to non-deterministic install"; \
+    echo "   This is acceptable for development but should be avoided in production"; \
+    pnpm install; \
+}
 
 # Copy dev3000 source code
 COPY .dev3000/src ./src
