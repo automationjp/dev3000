@@ -15,7 +15,7 @@
 #### Production Build Failure (Next.js 16 Bug)
 **Status**: Blocked by upstream bug
 **Issue**: Next.js 16.0.0 and 16.0.1-canary.2 both fail during production build with:
-```
+```text
 TypeError: Cannot read properties of null (reading 'useContext')
 at /_global-error prerendering
 ```

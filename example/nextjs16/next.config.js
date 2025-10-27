@@ -35,9 +35,6 @@ const nextConfig = {
     }
   },
 
-  // Build output directory
-  distDir: '.next',
-
   // TypeScript configuration
   typescript: {
     // Enable type checking during build
