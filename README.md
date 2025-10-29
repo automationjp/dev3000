@@ -267,6 +267,18 @@ environment:
   - WATCHPACK_POLLING=true
 ```
 
+Hot reload is also enabled via bind mounts (mount only source dirs to avoid WSL2 permission issues on the project root):
+```yaml
+services:
+  dev3000:
+    volumes:
+      - ./frontend/app:/app/frontend/app:delegated
+      - ./frontend/public:/app/frontend/public:delegated
+      - /app/frontend/node_modules
+      - /app/frontend/.next
+```
+If you experience slow I/O on WSL2 mounts, consider moving your project under your Linux home directory or temporarily disabling bind mounts and using `make dev-rebuild-fast` to reflect changes.
+
 **Problem 3: host.docker.internal not resolving**
 
 **Solution:** Manually set host IP in .env:

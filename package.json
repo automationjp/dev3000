@@ -31,12 +31,12 @@
     "README.md"
   ],
   "scripts": {
-    "preinstall": "npx only-allow pnpm",
+    "preinstall": "bunx only-allow pnpm",
     "build": "tsc && mkdir -p dist/src && cp src/loading.html dist/src/ && cp src/tui-interface-impl.tsx dist/src/",
     "typegen": "./scripts/typegen.sh",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write .",
-    "lint": "biome check src mcp-server www scripts --vcs-use-ignore-file=true",
+    "lint": "biome check src mcp-server www scripts --vcs-use-ignore-file=true && node scripts/verify-esm.mjs",
     "lint:fix": "biome check --write src mcp-server www scripts",
     "test": "vitest run",
     "test-postinstall": "tsx scripts/test-postinstall.ts",
