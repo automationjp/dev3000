@@ -1,9 +1,7 @@
 # Dev3000 Development Makefile
 # Simplified development workflow for Docker-based dev3000
 
-.PHONY: help dev-up dev-down dev-logs dev-rebuild dev-rebuild-fast dev3000-sync dev-rebuild-frontend clean clean-frontend deploy-frontend deploy-and-start list-examples start-chrome-cdp start-chrome-cdp-xplat stop-chrome-cdp status
- .PHONY: cdp-check
- .PHONY: dev-build dev-build-fast
+.PHONY: help dev-up dev-down dev-logs dev-rebuild dev-rebuild-fast dev3000-sync dev-rebuild-frontend clean clean-frontend deploy-frontend deploy-and-start list-examples start-chrome-cdp start-chrome-cdp-xplat stop-chrome-cdp status cdp-check dev-build dev-build-fast
 
 # Default target
 .DEFAULT_GOAL := help
@@ -16,16 +14,12 @@ SHELL := /bin/bash
 # Resolve absolute directory of this Makefile for robust cd in recipes
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-# Detect environment and set CDP URL
+# Detect environment
 IS_WSL2 := $(shell grep -qi microsoft /proc/version 2>/dev/null && echo 1 || echo 0)
-ifeq ($(IS_WSL2),1)
-    # On WSL2, prefer checking Windows host via localhost explicitly
-    CDP_URL := http://localhost:9222
-    CDP_CHECK_URL := http://localhost:9222/json/version
-else
-    CDP_URL := http://localhost:9222
-    CDP_CHECK_URL := http://localhost:9222/json/version
-endif
+
+# CDP URLs always use localhost (WSL2 uses socat proxy in container)
+CDP_URL := http://localhost:9222
+CDP_CHECK_URL := http://localhost:9222/json/version
 
 ## ========== Quick Start ==========
 
@@ -377,25 +371,21 @@ start-chrome-cdp: ## Start Chrome with CDP (now unified to cross-platform launch
 	@echo "🌐 Starting Chrome with CDP (cross-platform launcher)..."
 	@echo "PWD: $$(pwd)"
 	@echo "CDP check URL: $(CDP_CHECK_URL)"
-	@APP_URL="http://localhost:3000/"; \
-	if [ "$(IS_WSL2)" = "1" ]; then APP_URL="http://localhost:3000/"; fi; \
-	echo "App URL: $$APP_URL"; \
-	if ! ( cd "$(MAKEFILE_DIR)" && node scripts/launch-chrome-cdp.js --app-url "$$APP_URL" --check-url "$(CDP_CHECK_URL)" --cdp-port 9222 ); then \
-		echo "[CDP] ⚠️  Chrome launcher exited with error (check logs)"; \
-	fi
+    @APP_URL="http://localhost:3000/"; \
+    echo "App URL: $$APP_URL"; \
+    if ! ( cd "$(MAKEFILE_DIR)" && node scripts/launch-chrome-cdp.js --app-url "$$APP_URL" --check-url "$(CDP_CHECK_URL)" --cdp-port 9222 ); then \
+        echo "[CDP] ⚠️  Chrome launcher exited with error (check logs)"; \
+    fi
 
 start-chrome-cdp-xplat: ## Start Chrome with CDP via cross-platform Node launcher
 	@echo "🌐 Starting Chrome with CDP (cross-platform launcher)..."
 	@echo "PWD: $$(pwd)"
 	@echo "CDP check URL: $(CDP_CHECK_URL)"
-	@APP_URL="http://localhost:3000/"; \
-	if [ "$(IS_WSL2)" = "1" ]; then \
-		APP_URL="http://localhost:3000/"; \
-	fi; \
-	echo "App URL: $$APP_URL"; \
-	if ! node scripts/launch-chrome-cdp.js --app-url "$$APP_URL" --check-url "$(CDP_CHECK_URL)" --cdp-port 9222; then \
-		echo "[CDP] ⚠️  Chrome launcher exited with error (check logs)"; \
-	fi
+    @APP_URL="http://localhost:3000/"; \
+    echo "App URL: $$APP_URL"; \
+    if ! ( cd "$(MAKEFILE_DIR)" && node scripts/launch-chrome-cdp.js --app-url "$$APP_URL" --check-url "$(CDP_CHECK_URL)" --cdp-port 9222 ); then \
+        echo "[CDP] ⚠️  Chrome launcher exited with error (check logs)"; \
+    fi
 
 stop-chrome-cdp: ## Stop Chrome CDP process
 	@echo "Stopping Chrome CDP..."
