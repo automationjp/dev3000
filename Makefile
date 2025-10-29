@@ -11,8 +11,8 @@ SHELL := /bin/bash
 .ONESHELL:
 .SHELLFLAGS := -lc
 
-# Resolve absolute directory of this Makefile for robust cd in recipes
-MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+# Resolve absolute directory of this Makefile for robust cd in recipes (deferred evaluation)
+MAKEFILE_DIR = $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 # Detect environment
 IS_WSL2 := $(shell grep -qi microsoft /proc/version 2>/dev/null && echo 1 || echo 0)
@@ -44,8 +44,9 @@ dev-up: ## Start dev3000 in Docker (launches Chrome automatically)
 	@docker compose up -d
 	@echo ""
 	@echo "Step 2: Waiting for Next.js to be ready..."
-	@i=1; while [ $$i -le 60 ]; do \
+	@NEXT_READY=0; i=1; while [ $$i -le 60 ]; do \
 		if curl -s http://localhost:3000 > /dev/null 2>&1; then \
+			NEXT_READY=1; \
 			echo "✅ Next.js is ready!"; \
 			break; \
 		fi; \
@@ -58,30 +59,28 @@ dev-up: ## Start dev3000 in Docker (launches Chrome automatically)
 		i=$$((i + 1)); \
 	done
 	@echo ""
-	@echo "Step 2.5: Warming common routes (compile ahead of time)..."
-		@for route in \
-			"/" \
-			"/demos/counter" \
-			"/demos/server-actions" \
-			"/demos/parallel-routes" \
-		; do \
-			START_RT=$$(date +%s); \
-			echo "  → warming http://localhost:3000$$route"; \
-			code=$$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000$$route" || echo 000); \
-			END_RT=$$(date +%s); EL=$$((END_RT-START_RT)); \
-			if [ "$$code" -ge 200 ] && [ "$$code" -lt 300 ]; then \
-				echo "    warmed ($$code) in $${EL}s ✅"; \
-			else \
-				echo "    warmed ($$code) in $${EL}s ⚠️"; \
-			fi; \
-		done
+	@if [ "$$NEXT_READY" = "1" ]; then \
+		echo "Step 2.5: Warming common routes (compile ahead of time)..."; \
+			for route in "/" "/demos/counter" "/demos/server-actions" "/demos/parallel-routes"; do \
+				START_RT=$$(date +%s); \
+				echo "  → warming http://localhost:3000$$route"; \
+				code=$$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000$$route" || echo 000); \
+				END_RT=$$(date +%s); EL=$$((END_RT-START_RT)); \
+				if [ "$$code" -ge 200 ] && [ "$$code" -lt 300 ]; then \
+					echo "    warmed ($$code) in $${EL}s ✅"; \
+				else \
+					echo "    warmed ($$code) in $${EL}s ⚠️"; \
+				fi; \
+			done; \
+	else \
+		echo "Step 2.5: Skipping route warming (Next not ready)"; \
+	fi
 	@echo ""
 		@echo "[CDP] Step 3: Launching Chrome with CDP..."
-		@APP_URL="http://localhost:3000/"; \
-		if [ "$(IS_WSL2)" = "1" ]; then APP_URL="http://localhost:3000/"; fi; \
-		if ! ( cd "$(MAKEFILE_DIR)" && /usr/bin/env bash -lc 'node scripts/launch-chrome-cdp.js --app-url '"$$APP_URL"' --check-url "$(CDP_CHECK_URL)" --cdp-port 9222' ); then \
-			echo "[CDP] ⚠️  Chrome launcher exited with error (check logs)"; \
-		fi
+			@APP_URL="http://localhost:3000/"; \
+			if ! /usr/bin/env bash -lc 'cd "$(pwd -P 2>/dev/null || pwd)" && node scripts/launch-chrome-cdp.js --app-url '"$$APP_URL"' --check-url "$(CDP_CHECK_URL)" --cdp-port 9222'; then \
+				echo "[CDP] ⚠️  Chrome launcher exited with error (check logs)"; \
+			fi
 	@echo ""
 	@echo "[CDP] Step 4: Verifying CDP connection (host + container)"
 		@if echo "[CDP][ref] Host curl: curl -sSf $(CDP_CHECK_URL)"; curl -sSf $(CDP_CHECK_URL) > /dev/null 2>&1; then \
@@ -374,15 +373,16 @@ cdp-check: ## Verify CDP reachability from Windows/WSL/Docker
 start-chrome-cdp: ## Start Chrome with CDP (now unified to cross-platform launcher)
 	@$(MAKE) start-chrome-cdp-xplat
 
+
 start-chrome-cdp-xplat: ## Start Chrome with CDP via cross-platform Node launcher
 	@echo "🌐 Starting Chrome with CDP (cross-platform launcher)..."
 	@echo "PWD: $$(pwd)"
 	@echo "CDP check URL: $(CDP_CHECK_URL)"
-    @APP_URL="http://localhost:3000/"; \
-    echo "App URL: $$APP_URL"; \
-    if ! ( cd "$(MAKEFILE_DIR)" && node scripts/launch-chrome-cdp.js --app-url "$$APP_URL" --check-url "$(CDP_CHECK_URL)" --cdp-port 9222 ); then \
-        echo "[CDP] ⚠️  Chrome launcher exited with error (check logs)"; \
-    fi
+	@APP_URL="http://localhost:3000/"; \
+	echo "App URL: $$APP_URL"; \
+	if ! /usr/bin/env bash -lc 'cd "$(pwd -P 2>/dev/null || pwd)" && node scripts/launch-chrome-cdp.js --app-url '"$$APP_URL"' --check-url "$(CDP_CHECK_URL)" --cdp-port 9222'; then \
+		echo "[CDP] ⚠️  Chrome launcher exited with error (check logs)"; \
+	fi
 
 stop-chrome-cdp: ## Stop Chrome CDP process
 	@echo "Stopping Chrome CDP..."

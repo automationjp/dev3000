@@ -10,6 +10,20 @@ cd /app/frontend || exit 1
 echo "Dev3000 Container Starting..."
 echo "Working directory: $(pwd)"
 
+# Quiet npm if it gets invoked indirectly by any tool (suppress noisy cleanup warns)
+export NPM_CONFIG_LOGLEVEL=silent
+export NPM_CONFIG_FUND=false
+export NPM_CONFIG_AUDIT=false
+export NPM_CONFIG_PROGRESS=false
+export NPM_CONFIG_UPDATE_NOTIFIER=false
+
+# Clean up any leftover npx cache to avoid ENOTEMPTY cleanup warnings
+if [ -d "/root/.npm/_npx" ]; then
+  echo "[NPM] Cleaning leftover NPX cache at /root/.npm/_npx ..."
+  rm -rf /root/.npm/_npx/* 2>/dev/null || true
+  echo "[NPM] NPX cache cleaned"
+fi
+
 # Show hot-reload mount status
 echo ""
 echo "🧩 Hot Reload mounts"
