@@ -367,9 +367,9 @@ async function ensureOpenCodeMcpServers(
 
     let added = false
 
-    // Add dev3000 MCP server - use npx with mcp-client to connect to HTTP server
-    // NOTE: dev3000 now acts as an MCP orchestrator/gateway that internally
-    // spawns and connects to chrome-devtools-mcp and next-devtools-mcp as stdio processes
+    // Add dev3000 MCP server (remote HTTP endpoint)
+    // NOTE: dev3000 acts as an MCP orchestrator/gateway that internally
+    // spawns chrome-devtools-mcp / next-devtools-mcp as stdio processes via bunx
     if (!settings.mcp[MCP_NAMES.DEV3000]) {
       settings.mcp[MCP_NAMES.DEV3000] = {
         type: "remote",
@@ -1398,6 +1398,15 @@ export class DevEnvironment {
       unlinkSync(writeProbe)
     } catch (e) {
       this.preflightIssues.push(`作業ディレクトリへ書き込みできません (EACCES): ${(e as Error).message}`)
+    }
+
+    // Check for Bun (bunx) availability for MCP orchestration and scripts
+    try {
+      execSync("bunx --version", { stdio: "ignore" })
+    } catch (_e) {
+      this.preflightIssues.push(
+        "Bun (bunx) が見つかりません。MCP オーケストレーションやスクリプト実行に使用します。https://bun.sh/ の手順でインストールしてください"
+      )
     }
 
     if (this.preflightIssues.length > 0) {

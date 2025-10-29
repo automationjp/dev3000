@@ -59,18 +59,22 @@ dev-up: ## Start dev3000 in Docker (launches Chrome automatically)
 	done
 	@echo ""
 	@echo "Step 2.5: Warming common routes (compile ahead of time)..."
-	@for route in \
-		"/" \
-		"/demos/counter" \
-		"/demos/server-actions" \
-		"/demos/parallel-routes" \
-	; do \
-		START_RT=$$(date +%s); \
-		echo "  → warming http://localhost:3000$$route"; \
-		code=$$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000$$route" || echo 000); \
-		END_RT=$$(date +%s); EL=$$((END_RT-START_RT)); \
-		echo "    warmed ($$code) in $${EL}s"; \
-	done
+		@for route in \
+			"/" \
+			"/demos/counter" \
+			"/demos/server-actions" \
+			"/demos/parallel-routes" \
+		; do \
+			START_RT=$$(date +%s); \
+			echo "  → warming http://localhost:3000$$route"; \
+			code=$$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000$$route" || echo 000); \
+			END_RT=$$(date +%s); EL=$$((END_RT-START_RT)); \
+			if [ "$$code" -ge 200 ] && [ "$$code" -lt 300 ]; then \
+				echo "    warmed ($$code) in $${EL}s ✅"; \
+			else \
+				echo "    warmed ($$code) in $${EL}s ⚠️"; \
+			fi; \
+		done
 	@echo ""
 		@echo "[CDP] Step 3: Launching Chrome with CDP..."
 		@APP_URL="http://localhost:3000/"; \
@@ -112,7 +116,7 @@ dev-up: ## Start dev3000 in Docker (launches Chrome automatically)
 		fi; \
 		if docker ps --format '{{.Names}}' | grep -q '^dev3000$$'; then \
 			DX_LOCAL_OUT=$$(docker exec dev3000 sh -lc 'curl -sSf http://localhost:9222/json/version 2>/dev/null || true'); \
-			DX_PROXY_INFO=$$(docker exec dev3000 sh -lc 'lsof -nP -iTCP:9222 -sTCP:LISTEN 2>/dev/null | awk '\''NR>1{print $$1,$$9}'\'' || true'); \
+			DX_PROXY_INFO=$$(docker exec dev3000 sh -lc 'if command -v lsof >/dev/null 2>&1; then lsof -nP -iTCP:9222 -sTCP:LISTEN 2>/dev/null | awk '\''NR>1{print $$1,$$9}'\''; elif command -v ss >/dev/null 2>&1; then ss -ltnp 2>/dev/null | awk '\''/(:|\.)9222(\s|$)/ {print $$0; exit}'\''; fi' || true); \
 			if [ -n "$$DX_LOCAL_OUT" ]; then \
 				DX_BROWSER=$$(printf "%s" "$$DX_LOCAL_OUT" | sed -n 's/.*\"Browser\":\"\([^\"]*\)\".*/\1/p'); \
 				echo "[CDP] ✅ Container: localhost:9222 OK"; \
@@ -132,7 +136,7 @@ dev-up: ## Start dev3000 in Docker (launches Chrome automatically)
 			if [ -n "$$DX_LOCAL_OUT" ] || [ "$$DX_HOST_RC" = "0" ]; then \
 				echo "[CDP] ✅ Dev3000 CDP Ready (container reachable)"; \
 				if [ -n "$$DX_LOCAL_OUT" ]; then \
-					DX_PROXY_PROC=$$(printf "%s" "$$DX_PROXY_INFO" | awk '{print $$1}' | head -n1); \
+					DX_PROXY_PROC=$$(printf "%s" "$$DX_PROXY_INFO" | awk 'NR==1{ if ($$1=="LISTEN") { match($$0,/users:\(\(([^,]+)/,m); if (m[1] != "") print m[1]; else print "" } else { print $$1 } }'); \
 					if [ -n "$$DX_PROXY_PROC" ]; then \
 						echo "[CDP]    Route: container localhost:9222 → proxy (listener: $$DX_PROXY_PROC) → Windows 127.0.0.1:9222"; \
 					else \
@@ -368,14 +372,7 @@ cdp-check: ## Verify CDP reachability from Windows/WSL/Docker
 ## ========== Chrome CDP Management ==========
 
 start-chrome-cdp: ## Start Chrome with CDP (now unified to cross-platform launcher)
-	@echo "🌐 Starting Chrome with CDP (cross-platform launcher)..."
-	@echo "PWD: $$(pwd)"
-	@echo "CDP check URL: $(CDP_CHECK_URL)"
-    @APP_URL="http://localhost:3000/"; \
-    echo "App URL: $$APP_URL"; \
-    if ! ( cd "$(MAKEFILE_DIR)" && node scripts/launch-chrome-cdp.js --app-url "$$APP_URL" --check-url "$(CDP_CHECK_URL)" --cdp-port 9222 ); then \
-        echo "[CDP] ⚠️  Chrome launcher exited with error (check logs)"; \
-    fi
+	@$(MAKE) start-chrome-cdp-xplat
 
 start-chrome-cdp-xplat: ## Start Chrome with CDP via cross-platform Node launcher
 	@echo "🌐 Starting Chrome with CDP (cross-platform launcher)..."

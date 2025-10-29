@@ -16,6 +16,7 @@ Before starting, ensure you have:
 - **Chrome browser** installed (for CDP monitoring)
 - **WSL2** enabled (Windows users)
 - **Make** utility (usually pre-installed on Linux/Mac)
+ - **Bun** installed (required for MCP orchestration and scripts: https://bun.sh/)
 
 ### Option 1: Try with Example App (Recommended for First-Time Users)
 

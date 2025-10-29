@@ -2,6 +2,7 @@ import { extractProjectNameFromLogFilename, logFilenameMatchesProject } from "@d
 import { existsSync, readdirSync, readFileSync, statSync } from "fs"
 import { redirect } from "next/navigation"
 import { basename, dirname, join } from "path"
+import { Suspense } from "react"
 import LogsClient from "./LogsClient"
 import { parseLogEntries } from "./utils"
 
@@ -79,7 +80,9 @@ async function getLogData(logPath: string, mode: "head" | "tail" = "tail", lines
   }
 }
 
-export default async function LogsPage({ searchParams }: PageProps) {
+// MIGRATED for Cache Components: Wrapped dynamic filesystem operations in Suspense
+// This page reads from filesystem which is inherently dynamic
+async function LogsContent({ searchParams }: PageProps) {
   const version = process.env.DEV3000_VERSION || "0.0.0"
 
   // Await searchParams (Next.js 15 requirement)
@@ -146,5 +149,13 @@ export default async function LogsPage({ searchParams }: PageProps) {
         mode
       }}
     />
+  )
+}
+
+export default function LogsPage({ searchParams }: PageProps) {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading logs...</div>}>
+      <LogsContent searchParams={searchParams} />
+    </Suspense>
   )
 }

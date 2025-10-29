@@ -1072,7 +1072,8 @@ export default function LogsClient({ version, initialData }: LogsClientProps) {
     // Use MCP_BASE_URL environment variable if available, otherwise detect from window.location
     const getBaseUrl = () => {
       // Check if we have a configured MCP base URL (e.g., from environment variable)
-      const windowWithMCP = typeof window !== "undefined" ? (window as unknown as { __MCP_BASE_URL__?: string }) : undefined
+      const windowWithMCP =
+        typeof window !== "undefined" ? (window as unknown as { __MCP_BASE_URL__?: string }) : undefined
       if (windowWithMCP?.__MCP_BASE_URL__) {
         return windowWithMCP.__MCP_BASE_URL__
       }
