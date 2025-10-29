@@ -4,14 +4,14 @@
 // Fails if `require(` is used in .ts or .js files (except build outputs)
 
 import { readdirSync, readFileSync, statSync } from "node:fs"
-import { extname, join } from "node:path"
+import { extname, join, sep } from "node:path"
 
 const roots = ["src", "mcp-server/app", "scripts"]
 const ignoreDirs = new Set([
   ".git",
   "node_modules",
   "dist",
-  "mcp-server/.next",
+  "mcp-server/app/.next",
   "frontend",
   "example",
   "chrome-extension"
@@ -21,9 +21,10 @@ const exts = new Set([".ts", ".js"]) // .cjs intentionally excluded
 const offenders = []
 
 function shouldIgnore(fullPath, _name) {
-  // Ignore directories in the ignore set or nested under them
+  // Normalize path separators for cross-platform matching
+  const normalized = fullPath.split(sep).join("/")
   for (const ig of ignoreDirs) {
-    if (fullPath.includes(`/${ig}/`) || fullPath.endsWith(`/${ig}`)) return true
+    if (normalized === ig || normalized.endsWith(`/${ig}`) || normalized.includes(`/${ig}/`)) return true
   }
   return false
 }

@@ -63,6 +63,9 @@ services:
       # File watching for hot reload (required for Docker/WSL)
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
+      # Reduce polling frequency to lower overhead in dev and speed up HMR/first render
+      - WATCHPACK_POLLING_INTERVAL=1000
+      - CHOKIDAR_INTERVAL=500
 
       # Next.js configuration
       - NEXT_TELEMETRY_DISABLED=1

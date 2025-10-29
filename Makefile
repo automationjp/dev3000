@@ -64,10 +64,26 @@ dev-up: ## Start dev3000 in Docker (launches Chrome automatically)
 		i=$$((i + 1)); \
 	done
 	@echo ""
-	@echo "[CDP] Step 3: Launching Chrome with CDP..."
-	@APP_URL="http://localhost:3000/"; \
-	if [ "$(IS_WSL2)" = "1" ]; then APP_URL="http://localhost:3000/"; fi; \
-			/usr/bin/env bash -lc 'cd "$(pwd -P 2>/dev/null || pwd)" && node scripts/launch-chrome-cdp.js --app-url '"$$APP_URL"' --check-url "$(CDP_CHECK_URL)" --cdp-port 9222' || true
+	@echo "Step 2.5: Warming common routes (compile ahead of time)..."
+	@for route in \
+		"/" \
+		"/demos/counter" \
+		"/demos/server-actions" \
+		"/demos/parallel-routes" \
+	; do \
+		START_RT=$$(date +%s); \
+		echo "  → warming http://localhost:3000$$route"; \
+		code=$$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000$$route" || echo 000); \
+		END_RT=$$(date +%s); EL=$$((END_RT-START_RT)); \
+		echo "    warmed ($$code) in $${EL}s"; \
+	done
+	@echo ""
+		@echo "[CDP] Step 3: Launching Chrome with CDP..."
+		@APP_URL="http://localhost:3000/"; \
+		if [ "$(IS_WSL2)" = "1" ]; then APP_URL="http://localhost:3000/"; fi; \
+		if ! ( cd "$(MAKEFILE_DIR)" && /usr/bin/env bash -lc 'node scripts/launch-chrome-cdp.js --app-url '"$$APP_URL"' --check-url "$(CDP_CHECK_URL)" --cdp-port 9222' ); then \
+			echo "[CDP] ⚠️  Chrome launcher exited with error (check logs)"; \
+		fi
 	@echo ""
 	@echo "[CDP] Step 4: Verifying CDP connection (host + container)"
 		@if echo "[CDP][ref] Host curl: curl -sSf $(CDP_CHECK_URL)"; curl -sSf $(CDP_CHECK_URL) > /dev/null 2>&1; then \
@@ -153,10 +169,14 @@ dev-up: ## Start dev3000 in Docker (launches Chrome automatically)
 	else \
 		if command -v xdg-open >/dev/null 2>&1; then \
 			echo "[LOGS] Opening http://localhost:3684/logs..."; \
-			xdg-open http://localhost:3684/logs >/dev/null 2>&1 || true; \
+			if ! xdg-open http://localhost:3684/logs >/dev/null 2>&1; then \
+				echo "[LOGS] ⚠️  Failed to auto-open; visit: http://localhost:3684/logs"; \
+			fi; \
 		elif command -v open >/dev/null 2>&1; then \
 			echo "[LOGS] Opening http://localhost:3684/logs..."; \
-			open http://localhost:3684/logs >/dev/null 2>&1 || true; \
+			if ! open http://localhost:3684/logs >/dev/null 2>&1; then \
+				echo "[LOGS] ⚠️  Failed to auto-open; visit: http://localhost:3684/logs"; \
+			fi; \
 		else \
 			echo "[LOGS] Visit: http://localhost:3684/logs"; \
 		fi; \
@@ -358,9 +378,11 @@ start-chrome-cdp: ## Start Chrome with CDP (now unified to cross-platform launch
 	@echo "PWD: $$(pwd)"
 	@echo "CDP check URL: $(CDP_CHECK_URL)"
 	@APP_URL="http://localhost:3000/"; \
-	if [ "$(IS_WSL2)" = "1" ]; then APP_URL="http://$(HOST_IP):3000/"; fi; \
+	if [ "$(IS_WSL2)" = "1" ]; then APP_URL="http://localhost:3000/"; fi; \
 	echo "App URL: $$APP_URL"; \
-	cd "$(CURDIR)" && node scripts/launch-chrome-cdp.js --app-url "$$APP_URL" --check-url "$(CDP_CHECK_URL)" --cdp-port 9222 || true
+	if ! ( cd "$(MAKEFILE_DIR)" && node scripts/launch-chrome-cdp.js --app-url "$$APP_URL" --check-url "$(CDP_CHECK_URL)" --cdp-port 9222 ); then \
+		echo "[CDP] ⚠️  Chrome launcher exited with error (check logs)"; \
+	fi
 
 start-chrome-cdp-xplat: ## Start Chrome with CDP via cross-platform Node launcher
 	@echo "🌐 Starting Chrome with CDP (cross-platform launcher)..."
@@ -368,10 +390,12 @@ start-chrome-cdp-xplat: ## Start Chrome with CDP via cross-platform Node launche
 	@echo "CDP check URL: $(CDP_CHECK_URL)"
 	@APP_URL="http://localhost:3000/"; \
 	if [ "$(IS_WSL2)" = "1" ]; then \
-		APP_URL="http://$(HOST_IP):3000/"; \
+		APP_URL="http://localhost:3000/"; \
 	fi; \
 	echo "App URL: $$APP_URL"; \
-	node scripts/launch-chrome-cdp.js --app-url "$$APP_URL" --check-url "$(CDP_CHECK_URL)" --cdp-port 9222 || true
+	if ! node scripts/launch-chrome-cdp.js --app-url "$$APP_URL" --check-url "$(CDP_CHECK_URL)" --cdp-port 9222; then \
+		echo "[CDP] ⚠️  Chrome launcher exited with error (check logs)"; \
+	fi
 
 stop-chrome-cdp: ## Stop Chrome CDP process
 	@echo "Stopping Chrome CDP..."
