@@ -144,11 +144,11 @@ dev-rebuild: ## Rebuild and restart Docker environment
 	@# Ensure frontend/Dockerfile.dev exists; auto-provision default example if missing
 	@if [ ! -f "frontend/Dockerfile.dev" ]; then \
 		echo "[SETUP] Missing frontend/Dockerfile.dev. Auto-deploying example: nextjs16"; \
-		$(MAKE) deploy-frontend APP=nextjs16; \
+		$(MAKE) -C $(MAKEFILE_DIR) deploy-frontend APP=nextjs16; \
 	fi
 	@run_cmd "docker compose down" docker compose down
 	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "docker compose build --no-cache" bash -lc "DOCKER_BUILDKIT=1 docker compose build --no-cache"'
-	@$(MAKE) dev-up
+	@$(MAKE) -C $(MAKEFILE_DIR) dev-up
 	@END_TS=$$(date +%s); ELAPSED=$$((END_TS-START_TS)); echo "[RUN] End:   $$(date '+%Y-%m-%d %H:%M:%S') (elapsed: $${ELAPSED}s)"
 
 dev-rebuild-fast: ## Fast rebuild using cache (for minor changes)
@@ -158,11 +158,11 @@ dev-rebuild-fast: ## Fast rebuild using cache (for minor changes)
 	@# Ensure frontend/Dockerfile.dev exists; auto-provision default example if missing
 	@if [ ! -f "frontend/Dockerfile.dev" ]; then \
 		echo "[SETUP] Missing frontend/Dockerfile.dev. Auto-deploying example: nextjs16"; \
-		$(MAKE) deploy-frontend APP=nextjs16; \
+		$(MAKE) -C $(MAKEFILE_DIR) deploy-frontend APP=nextjs16; \
 	fi
 	@run_cmd "docker compose down" docker compose down
 	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "docker compose build (cache)" bash -lc "DOCKER_BUILDKIT=1 docker compose build"'
-	@$(MAKE) dev-up
+	@$(MAKE) -C $(MAKEFILE_DIR) dev-up
 	@END_TS=$$(date +%s); ELAPSED=$$((END_TS-START_TS)); echo "[RUN] End:   $$(date '+%Y-%m-%d %H:%M:%S') (elapsed: $${ELAPSED}s)"
 
 # Build-only targets (do not start or stop containers)
@@ -202,7 +202,7 @@ dev-rebuild-frontend: ## Rebuild frontend Docker image only (without full restar
 	@# Ensure frontend/Dockerfile.dev exists; auto-provision default example if missing
 	@if [ ! -f "frontend/Dockerfile.dev" ]; then \
 		echo "[SETUP] Missing frontend/Dockerfile.dev. Auto-deploying example: nextjs16"; \
-		$(MAKE) deploy-frontend APP=nextjs16; \
+		$(MAKE) -C $(MAKEFILE_DIR) deploy-frontend APP=nextjs16; \
 	fi
 	@run_cmd "docker compose down" docker compose down
 	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "docker compose build (cache)" bash -lc "DOCKER_BUILDKIT=1 docker compose build"'
@@ -341,7 +341,7 @@ setup: ## Initial setup: deploy example (APP? default: nextjs16), build images, 
 	else \
 		APP_NAME="$(APP)"; \
 	fi; \
-	$(MAKE) deploy-frontend APP=$$APP_NAME
+	$(MAKE) -C $(MAKEFILE_DIR) deploy-frontend APP=$$APP_NAME
 	@# Ensure pnpm exists
 	@if ! command -v pnpm >/dev/null 2>&1; then \
 		section "PNPM Setup"; \
@@ -381,7 +381,13 @@ setup: ## Initial setup: deploy example (APP? default: nextjs16), build images, 
 	fi
 	@echo ""
 	@echo "[SETUP] Building images and starting environment..."
-	@$(MAKE) dev-rebuild
+	@$(MAKE) -C $(MAKEFILE_DIR) dev-rebuild
+	@echo ""
+	@section "Test Tooling"
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; if [ ! -x .shellspec/bin/shellspec ]; then hint "ShellSpec not bootstrapped (vendor)."; if confirm "Bootstrap ShellSpec locally now?"; then run_cmd "bootstrap shellspec" bash -lc "bash scripts/run-shellspec.sh --version || true"; else hint "Skipping ShellSpec bootstrap (NON_INTERACTIVE? set NON_INTERACTIVE=1 to skip prompts)"; fi; else run_cmd "shellspec --version" bash -lc ".shellspec/bin/shellspec --version"; fi' || true
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; if ! command -v kcov >/dev/null 2>&1; then hint "kcov not found (optional for coverage)."; if confirm "Install kcov via apt-get now? (sudo may be required)"; then run_cmd "install kcov (apt-get)" bash -lc "sudo apt-get update && sudo apt-get install -y kcov" || true; else hint "Skipping kcov install."; fi; else run_cmd "kcov --version" kcov --version; fi' || true
+	@section "Makefile Linting"
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "lint-make" bash -lc "make -s lint-make"' || true
 	@echo ""
 	@echo "✅ Setup complete. Next steps:"
 	@echo "  - Open: http://localhost:3000 (App)"
@@ -459,7 +465,7 @@ diagnose: ## Comprehensive diagnostics: env, ports, docker, browser, status
 	@section "CDP Diagnostics"
 	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; if [ -f scripts/check-cdp.mjs ]; then run_cmd "node scripts/check-cdp.mjs" node scripts/check-cdp.mjs; else hint "Skipping deep CDP check (repo dir unresolved). Running lightweight probes."; run_cmd "curl cdp /json/version (light)" bash -lc "curl -sSf http://localhost:9222/json/version || true"; run_cmd "ss -ltnp :9222 (light)" bash -lc "ss -ltnp 2>/dev/null | grep \":9222\" || true"; fi'
 	@section "Status"
-	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; echo "=== Dev3000 Status ==="; echo ""; echo "Docker Containers:"; docker compose ps; echo ""; echo "Chrome CDP:"; if curl -s http://localhost:9222/json/version >/dev/null 2>&1; then echo "  ✅ Chrome running with CDP on port 9222 (http://localhost:9222)"; else echo "  ❌ Chrome CDP not accessible (http://localhost:9222)"; fi; echo ""; echo "CDP Integration:"; if docker ps --format "{{.Names}}" | grep -q "^dev3000$"; then CDP_ENV=$$(docker inspect -f "{{range .Config.Env}}{{println .}}{{end}}" dev3000 2>/dev/null | awk -F= '\''$1=="DEV3000_CDP_URL"{print $2; exit}'\''); if [ -n "$$CDP_ENV" ]; then echo "  ✅ Container configured with CDP URL"; echo "  URL: $$CDP_ENV"; else echo "  ⚠️  Container running without explicit CDP URL (auto-detect mode)"; fi; else echo "  ❌ Dev3000 container not running"; fi'
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; echo "=== Dev3000 Status ==="; echo ""; echo "Docker Containers:"; docker compose ps; echo ""; echo "Chrome CDP:"; if curl -s http://localhost:9222/json/version >/dev/null 2>&1; then echo "  ✅ Chrome running with CDP on port 9222 (http://localhost:9222)"; else echo "  ❌ Chrome CDP not accessible (http://localhost:9222)"; fi'
 	@END_TS=$$(date +%s); ELAPSED=$$((END_TS-START_TS)); echo "[RUN] End:   $$(date '+%Y-%m-%d %H:%M:%S') (elapsed: $${ELAPSED}s)"
 
 ## ========== Log Utilities ==========
@@ -592,8 +598,11 @@ install-checkmake: ## Install checkmake Makefile linter (tries system/go/vendor)
 	fi
 	@# 2) Try apt (Ubuntu/Debian)
 	@if command -v apt-get >/dev/null 2>&1; then \
-		if [ -z "$$NON_INTERACTIVE" ]; then hint "Installing checkmake via apt-get (may require sudo)"; fi; \
-		/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "apt-get install checkmake" bash -lc "sudo apt-get update && sudo apt-get install -y checkmake"' && exit 0 || true; \
+		if confirm "Install checkmake via apt-get now? (sudo may be required)"; then \
+			/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "apt-get install checkmake" bash -lc "sudo apt-get update && sudo apt-get install -y checkmake"' && exit 0 || true; \
+		else \
+			hint "Skipping apt-get install for checkmake."; \
+		fi; \
 	fi; \
 	# 3) Ensure Go exists (optional auto-install on apt systems)
 	if ! command -v go >/dev/null 2>&1; then \
@@ -606,13 +615,13 @@ install-checkmake: ## Install checkmake Makefile linter (tries system/go/vendor)
 	# 4) Try Go install to local tools dir
 	TOOLS=.tools/checkmake/bin; mkdir -p "$$TOOLS"; \
 	if command -v go >/dev/null 2>&1; then \
-		/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "go install checkmake" bash -lc "GOBIN=\"$$PWD/.tools/checkmake/bin\" go install github.com/mrtazz/checkmake/cmd/checkmake@latest"'; \
+		/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "go install checkmake" bash -lc "GOBIN=\"$$PWD/.tools/checkmake/bin\" go install github.com/checkmake/checkmake/cmd/checkmake@latest"'; \
 		if [ -x "$$TOOLS/checkmake" ]; then echo "Installed: $$TOOLS/checkmake"; exit 0; fi; \
 	fi; \
 	echo "❌ Failed to install checkmake automatically."; \
 	echo "   Try one of:"; \
 	echo "     - sudo apt-get install -y checkmake"; \
-	echo "     - go install github.com/mrtazz/checkmake/cmd/checkmake@latest"; \
+	echo "     - go install github.com/checkmake/checkmake/cmd/checkmake@latest"; \
 	echo "     - or install a prebuilt binary from GitHub releases"; \
 	exit 1
 
