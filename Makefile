@@ -553,6 +553,24 @@ test-node: ## Alias for make test
 
 test-shellspec: ## Run ShellSpec suite for Make targets (e.g., make test-shellspec ARGS="--format progress")
 	@. scripts/make-helpers.sh
+	@# Ensure expected dev3000 container is running (and belongs to this compose project)
+	@echo "[TEST] Ensuring dev3000 container is running..."
+	@if ! docker ps --format '{{.Names}}' | grep -q '^dev3000$$'; then \
+		if [ ! -f "frontend/Dockerfile.dev" ]; then \
+			/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "deploy-frontend default" bash -lc "make -s deploy-frontend APP=nextjs16"'; \
+		fi; \
+		/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "dev-up (pre-test)" bash -lc "make -s dev-up"'; \
+	else \
+		LABELS=$$(docker inspect dev3000 --format '{{ index .Config.Labels "com.docker.compose.project" }} {{ index .Config.Labels "com.docker.compose.service" }}' 2>/dev/null || echo ""); \
+		if [ "$$LABELS" != "dev3000 dev3000" ]; then \
+			echo "[TEST] ⚠️ dev3000 exists but is not this compose service (labels: '$$LABELS'). Restarting..."; \
+			docker compose down || true; \
+			if [ ! -f "frontend/Dockerfile.dev" ]; then \
+				/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "deploy-frontend default" bash -lc "make -s deploy-frontend APP=nextjs16"'; \
+			fi; \
+			/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "dev-up (pre-test)" bash -lc "make -s dev-up"'; \
+		fi; \
+	fi
 	@run_cmd "shellspec" bash scripts/run-shellspec.sh $(if $(ARGS),$(ARGS),--format documentation)
 	@$(MAKE) log-ls
 
