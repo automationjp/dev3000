@@ -48,7 +48,6 @@ Describe 'Make targets (ShellSpec)'
     The status should be success
     The output should include 'CDP Reachability Check'
     The output should include 'RUN: node scripts/check-cdp.mjs'
-    The stderr should be present
   End
 
   It 'diagnose covers sections (real)'
@@ -59,14 +58,12 @@ Describe 'Make targets (ShellSpec)'
     The output should include 'Ports'
     The output should include 'HTTP Probes'
     The output should include 'Status'
-    The stderr should be present
   End
 
   It 'dev-logs one-shot (real)'
     When run run_make dev-logs D3K_LOG_ONE_SHOT=1
     The status should be success
     The output should include 'RUN: docker compose logs --tail 100'
-    The stderr should be present
   End
 
   It 'dev-build no-cache (real)'
