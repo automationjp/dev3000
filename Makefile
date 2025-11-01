@@ -25,38 +25,14 @@ CDP_CHECK_URL := http://localhost:9222/json/version
 
 help: ## Show this help message
 	@echo "Dev3000 Development Commands"
-	@echo ""
-	@echo "Setup:"
-	@echo "  make setup           - Initial setup (deploy example + build + start)"
-	@echo "Quick Start:"
-	@echo "  make dev-up          - Start development environment"
-	@echo "  make dev-down        - Stop development environment"
-	@echo "  make dev-logs        - Follow Docker container logs"
-	@echo ""
-	@echo "Diagnostics:"
-	@echo "  make diagnose        - Comprehensive diagnostics (env/ports/docker/browser/status)"
-	@echo "  make cdp-check       - Verify CDP reachability (host/WSL/container)"
-	@echo "  make status          - Show Docker/Chrome CDP status snapshot"
-	@echo ""
-	@echo "Testing:"
-	@echo "  make test            - Run Node/TS tests (Vitest)"
-	@echo "  make test-shellspec  - Run ShellSpec tests for Make targets"
-	@echo "  make test-all        - Run both Node tests and ShellSpec"
-	@echo "    pass args to ShellSpec: make test-shellspec ARGS=\"--format progress --jobs 2\""
-	@echo ""
-	@echo "Logs Utilities:"
-	@echo "  make log-ls          - List recent entries in combined.log"
-	@echo "  make log-tail-last   - Show last entry from combined.log"
-	@echo "  make log-clean       - Remove .make-logs (or D3K_LOG_DIR)"
-	@echo ""
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  %-21s %s\n", $$1, $$2}'
 
 ## ========== Docker Development ==========
 
 dev-up: ## Start dev3000 in Docker (launches Chrome automatically)
 	@START_TS=$$(date +%s); echo "[RUN] Start: $$(date '+%Y-%m-%d %H:%M:%S')"
-    @. scripts/make-helpers.sh
+	@. scripts/make-helpers.sh
 	@echo "Starting dev3000 development environment..."
 	@echo ""
 	@echo "Step 1: Starting Docker containers..."
@@ -84,25 +60,25 @@ dev-up: ## Start dev3000 in Docker (launches Chrome automatically)
 	@echo ""
 	@if [ "$$NEXT_READY" = "1" ]; then \
 		echo "Step 2.5: Warming common routes (compile ahead of time)..."; \
-			for route in "/" "/demos/counter" "/demos/server-actions" "/demos/parallel-routes"; do \
-				START_RT=$$(date +%s); \
-				echo "  → warming http://localhost:3000$$route"; \
-				code=$$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000$$route" || echo 000); \
-				END_RT=$$(date +%s); EL=$$((END_RT-START_RT)); \
-				if [ "$$code" -ge 200 ] && [ "$$code" -lt 300 ]; then \
-					echo "    warmed ($$code) in $${EL}s ✅"; \
-				else \
-					echo "    warmed ($$code) in $${EL}s ⚠️"; \
-				fi; \
-			done; \
+		for route in "/" "/demos/counter" "/demos/server-actions" "/demos/parallel-routes"; do \
+			START_RT=$$(date +%s); \
+			echo "  → warming http://localhost:3000$$route"; \
+			code=$$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:3000$$route" || echo 000); \
+			END_RT=$$(date +%s); EL=$$((END_RT-START_RT)); \
+			if [ "$$code" -ge 200 ] && [ "$$code" -lt 300 ]; then \
+				echo "    warmed ($$code) in $${EL}s ✅"; \
+			else \
+				echo "    warmed ($$code) in $${EL}s ⚠️"; \
+			fi; \
+		done; \
 	else \
 		echo "Step 2.5: Skipping route warming (Next not ready)"; \
 	fi
 	@echo ""
-		@echo "[CDP] Step 3: Launching Chrome with CDP..."
-			@$(MAKE) start-chrome-cdp-xplat
+	@echo "[CDP] Step 3: Launching Chrome with CDP..."
+	@$(MAKE) -C $(MAKEFILE_DIR) start-chrome-cdp-xplat
 	@echo ""
-	@echo "[CDP] Step 4: Running cdp-check diagnostics (host + container)"; $(MAKE) cdp-check
+	@echo "[CDP] Step 4: Running cdp-check diagnostics (host + container)"; $(MAKE) -C $(MAKEFILE_DIR) cdp-check
 	@echo ""
 	@echo "✅ Development environment started"
 	@echo ""
@@ -426,15 +402,21 @@ cdp-check: ## Verify CDP reachability from Windows/WSL/Docker
 		. scripts/make-helpers.sh; run_cmd "docker compose up" docker compose up -d; \
 		sleep 1; \
 	fi
-	@/usr/bin/env bash -lc 'cd "$(pwd -P 2>/dev/null || pwd)" && . scripts/make-helpers.sh && run_cmd "node scripts/check-cdp.mjs" node scripts/check-cdp.mjs'
+	@/usr/bin/env bash -lc 'cd "$(MAKEFILE_DIR)" && . scripts/make-helpers.sh && run_cmd "node scripts/check-cdp.mjs" node scripts/check-cdp.mjs'
 	@END_TS=$$(date +%s); ELAPSED=$$((END_TS-START_TS)); echo "[RUN] End:   $$(date '+%Y-%m-%d %H:%M:%S') (elapsed: $${ELAPSED}s)"
 
 diagnose: ## Comprehensive diagnostics: env, ports, docker, browser, status
 	@START_TS=$$(date +%s); echo "[RUN] Start: $$(date '+%Y-%m-%d %H:%M:%S')"
 	@. scripts/make-helpers.sh
 	@section "Environment"
-	@run_cmd "node --version" node --version || true
-	@run_cmd "pnpm --version" pnpm --version || true
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "node --version" bash -lc "cd \"$(MAKEFILE_DIR)\" && node --version"' || true
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "pnpm --version" bash -lc "cd \"$(MAKEFILE_DIR)\" && pnpm --version"' || true
+
+	@section "Test Tooling"
+	# Ensure ShellSpec is available (vendor via scripts/run-shellspec.sh)
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; if [ ! -x .shellspec/bin/shellspec ]; then hint "ShellSpec not bootstrapped (vendor)."; if confirm "Bootstrap ShellSpec locally now?"; then run_cmd "bootstrap shellspec" bash -lc "bash scripts/run-shellspec.sh --version || true"; else hint "Skipping ShellSpec bootstrap (NON_INTERACTIVE? set NON_INTERACTIVE=1 to skip prompts)"; fi; else run_cmd "shellspec --version" bash -lc ".shellspec/bin/shellspec --version"; fi' || true
+	# Check kcov for coverage support (optional)
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; if ! command -v kcov >/dev/null 2>&1; then hint "kcov not found (optional for coverage)."; if confirm "Install kcov via apt-get now? (sudo may be required)"; then run_cmd "install kcov (apt-get)" bash -lc "sudo apt-get update && sudo apt-get install -y kcov" || true; else hint "Skipping kcov install."; fi; else run_cmd "kcov --version" kcov --version; fi' || true
 	@# Offer to install pnpm via corepack if missing
 	@if ! command -v pnpm >/dev/null 2>&1; then \
 		section "PNPM Setup"; \
@@ -472,9 +454,9 @@ diagnose: ## Comprehensive diagnostics: env, ports, docker, browser, status
 	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "curl app /" bash -lc "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000 || true"'
 	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "curl cdp /json/version" bash -lc "curl -s -o /dev/null -w '%{http_code}' http://localhost:9222/json/version || true"'
 	@section "CDP Diagnostics"
-	@$(MAKE) cdp-check
+	@$(MAKE) -C $(MAKEFILE_DIR) cdp-check
 	@section "Status"
-	@$(MAKE) status
+	@$(MAKE) -C $(MAKEFILE_DIR) status
 	@END_TS=$$(date +%s); ELAPSED=$$((END_TS-START_TS)); echo "[RUN] End:   $$(date '+%Y-%m-%d %H:%M:%S') (elapsed: $${ELAPSED}s)"
 
 ## ========== Log Utilities ==========
@@ -506,7 +488,7 @@ log-tail-last: ## Show last command details from combined.log
 ## ========== Chrome CDP Management ==========
 
 start-chrome-cdp: ## Start Chrome with CDP (now unified to cross-platform launcher)
-	@$(MAKE) start-chrome-cdp-xplat
+	@$(MAKE) -C $(MAKEFILE_DIR) start-chrome-cdp-xplat
 
 
 start-chrome-cdp-xplat: ## Start Chrome with CDP via cross-platform Node launcher
@@ -516,7 +498,7 @@ start-chrome-cdp-xplat: ## Start Chrome with CDP via cross-platform Node launche
 	@echo "CDP check URL: $(CDP_CHECK_URL)"
 	@APP_URL="http://localhost:3000/"; \
 	echo "App URL: $$APP_URL"; \
-	/usr/bin/env bash -lc 'cd "$(pwd -P 2>/dev/null || pwd)" && . scripts/make-helpers.sh && run_cmd "launch chrome cdp" node scripts/launch-chrome-cdp.js --app-url '"$$APP_URL"' --check-url "$(CDP_CHECK_URL)" --cdp-port 9222' || echo "[CDP] ⚠️  Chrome launcher exited with error (check logs)"
+	/usr/bin/env bash -lc 'cd "$(MAKEFILE_DIR)" && . scripts/make-helpers.sh && run_cmd "launch chrome cdp" node scripts/launch-chrome-cdp.js --app-url '"$$APP_URL"' --check-url "$(CDP_CHECK_URL)" --cdp-port 9222' || echo "[CDP] ⚠️  Chrome launcher exited with error (check logs)"
 
 stop-chrome-cdp: ## Stop Chrome CDP process
 	@. scripts/make-helpers.sh

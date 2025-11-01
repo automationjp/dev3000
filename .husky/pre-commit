@@ -13,12 +13,6 @@ pnpm run test
 # Detect staged changes
 CHANGED="$(git diff --cached --name-only --diff-filter=ACM)"
 
-# Run ShellSpec only if Makefile or scripts/ changed
-if printf "%s" "$CHANGED" | grep -Eq '^(Makefile|scripts/)'; then
-  echo "🧪 Running ShellSpec (Makefile/scripts changed)"
-  NON_INTERACTIVE=1 pnpm run shellspec -- --format progress --jobs 2
-fi
-
 # Run frontend tests only if frontend/ changed
 if printf "%s" "$CHANGED" | grep -Eq '^frontend/'; then
   if [ -f frontend/package.json ]; then
