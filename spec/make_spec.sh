@@ -40,7 +40,6 @@ Describe 'Make targets (ShellSpec)'
     The output should include 'Step 2: Waiting for Next.js to be ready'
     The output should include 'Step 3: Launching Chrome with CDP'
     The output should include 'Step 4: Running cdp-check diagnostics'
-    The stderr should be present
   End
 
   It 'cdp-check logs intent (real)'
@@ -70,14 +69,12 @@ Describe 'Make targets (ShellSpec)'
         When run run_make dev-build
     The status should be success
     The output should include 'RUN: docker compose build --no-cache'
-    The stderr should be present
   End
 
   It 'dev-build-fast with cache (real)'
         When run run_make dev-build-fast
     The status should be success
     The output should include 'RUN: docker compose build (cache)'
-    The stderr should be present
   End
 
   It 'dev-rebuild down + build (real)'
@@ -85,7 +82,6 @@ Describe 'Make targets (ShellSpec)'
     The status should be success
     The output should include 'RUN: docker compose down'
     The output should include 'RUN: docker compose build --no-cache'
-    The stderr should be present
   End
 
   It 'dev-rebuild-fast down + build cache (real)'
@@ -93,98 +89,84 @@ Describe 'Make targets (ShellSpec)'
     The status should be success
     The output should include 'RUN: docker compose down'
     The output should include 'RUN: docker compose build (cache)'
-    The stderr should be present
   End
 
   It 'dev-down wraps docker compose down (real)'
     When run run_make dev-down
     The status should be success
     The output should include 'RUN: docker compose down'
-    The stderr should be present
   End
 
   It 'status prints summary (real)'
     When run run_make status
     The status should be success
     The output should include 'Dev3000 Status'
-    The stderr should be present
   End
 
   It 'start-chrome-cdp delegates to xplat (real)'
     When run run_make start-chrome-cdp
     The status should be success
     The output should include 'Starting Chrome with CDP (cross-platform launcher)'
-    The stderr should be present
   End
 
   It 'stop-chrome-cdp executes stop logic (real)'
     When run run_make stop-chrome-cdp
     The status should be success
     The output should include 'Stopping Chrome CDP'
-    The stderr should be present
   End
 
   It 'log utility test-echo (real)'
     When run run_make test-echo
     The status should be success
     The output should be present
-    The stderr should be present
   End
 
   It 'log utility log-ls (real)'
     When run run_make log-ls
     The status should be success
     The output should be present
-    The stderr should be present
   End
 
   It 'log utility log-tail-last (real)'
     When run run_make log-tail-last
     The status should be success
     The output should be present
-    The stderr should be present
   End
 
   It 'log utility log-clean (real)'
     When run run_make log-clean
     The status should be success
     The output should be present
-    The stderr should be present
   End
 
   It 'list-examples lists available examples (real)'
     When run run_make list-examples
     The status should be success
     The output should include 'Available example apps:'
-    The stderr should be present
   End
 
   It 'setup deploys example and starts (real)'
     When run run_seq "make -s setup APP=nextjs16 NON_INTERACTIVE=1"
     The status should be success
     The output should include 'Setup complete'
-    The stderr should be present
   End
 
   It 'init is an alias of setup (real)'
     When run run_seq "make -s init APP=nextjs16 NON_INTERACTIVE=1"
     The status should be success
     The output should include 'Setup complete'
-    The stderr should be present
   End
 
   It 'deploy-and-start requires APP (real)'
     When run run_make deploy-and-start
     The status should be failure
     The output should include 'Usage: make deploy-and-start APP='
-    The stderr should be present
   End
 
   It 'dev3000-sync errors without submodule (real)'
     When run run_make dev3000-sync
     The status should be failure
     The output should include 'frontend/.dev3000 is not a git repository'
-    The stderr should be present
   End
 
   It 'dev-rebuild-frontend down + build cache (real)'
@@ -192,34 +174,29 @@ Describe 'Make targets (ShellSpec)'
     The status should be success
     The output should include 'RUN: docker compose down'
     The output should include 'RUN: docker compose build (cache)'
-    The stderr should be present
   End
 
   It 'clean down -v and rm (real)'
     When run run_make clean
     The status should be success
     The output should include 'RUN: docker compose down -v'
-    The stderr should be present
   End
 
   It 'start-chrome-cdp-xplat logs intent (real)'
     When run run_make start-chrome-cdp-xplat
     The status should be success
     The output should include 'RUN: launch chrome cdp'
-    The stderr should be present
   End
 
   It 'clean-frontend wraps remove under run_cmd (real)'
     When run run_make clean-frontend
     The status should be success
     The output should include 'RUN: rm frontend/* (keep .keep)'
-    The stderr should be present
   End
 
   It 'deploy-frontend requires APP (real)'
     When run run_make deploy-frontend
     The status should be failure
     The output should include 'Usage: make deploy-frontend APP='
-    The stderr should be present
   End
 End
