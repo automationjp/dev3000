@@ -1,7 +1,7 @@
 # Dev3000 Development Makefile
 # Simplified development workflow for Docker-based dev3000
 
-.PHONY: help setup init dev-up dev-down dev-logs dev-rebuild dev-rebuild-fast dev3000-sync dev-rebuild-frontend clean clean-frontend deploy-frontend deploy-and-start list-examples start-chrome-cdp start-chrome-cdp-xplat stop-chrome-cdp status cdp-check dev-build dev-build-fast diagnose log-clean log-ls log-tail-last test-echo test-fail test test-node test-shellspec test-all
+.PHONY: help setup init dev-up dev-down dev-logs dev-rebuild dev-rebuild-fast dev3000-sync dev-rebuild-frontend clean clean-frontend deploy-frontend deploy-and-start list-examples start-chrome-cdp start-chrome-cdp-xplat stop-chrome-cdp status cdp-check dev-build dev-build-fast diagnose log-clean log-ls log-tail-last test-echo test-fail test test-node test-shellspec test-all install-checkmake lint-make
 
 # Default target
 .DEFAULT_GOAL := help
@@ -409,8 +409,8 @@ diagnose: ## Comprehensive diagnostics: env, ports, docker, browser, status
 	@START_TS=$$(date +%s); echo "[RUN] Start: $$(date '+%Y-%m-%d %H:%M:%S')"
 	@. scripts/make-helpers.sh
 	@section "Environment"
-	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "node --version" bash -lc "cd \"$(MAKEFILE_DIR)\" && node --version"' || true
-	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "pnpm --version" bash -lc "cd \"$(MAKEFILE_DIR)\" && pnpm --version"' || true
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "node --version" node --version' || true
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "pnpm --version" pnpm --version' || true
 
 	@section "Test Tooling"
 	# Ensure ShellSpec is available (vendor via scripts/run-shellspec.sh)
@@ -450,13 +450,16 @@ diagnose: ## Comprehensive diagnostics: env, ports, docker, browser, status
 	@run_cmd "docker compose ps" docker compose ps || true
 	@section "Ports"
 	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "ss -ltnp ports 3000/3684/9222" bash -lc "ss -ltnp 2>/dev/null | rg -n -e \":(3000|3684|9222)\" || true"'
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; l3000=$$(ss -ltnp 2>/dev/null | grep -E ":(3000)\b" | wc -l || true); l3684=$$(ss -ltnp 2>/dev/null | grep -E ":(3684)\b" | wc -l || true); l9222=$$(ss -ltnp 2>/dev/null | grep -E ":(9222)\b" | wc -l || true); kv "Port 3000" "$$( [ "$$l3000" -gt 0 ] && echo LISTEN || echo CLOSED)"; kv "Port 3684" "$$( [ "$$l3684" -gt 0 ] && echo LISTEN || echo CLOSED)"; kv "Port 9222" "$$( [ "$$l9222" -gt 0 ] && echo LISTEN || echo CLOSED)"; if [ "$$l3000" -eq 0 ]; then hint "App port 3000 CLOSED. Next: make dev-up; then make dev-logs"; fi; if [ "$$l3684" -eq 0 ]; then hint "MCP port 3684 CLOSED. Next: make dev-up; then make dev-logs"; fi; if [ "$$l9222" -eq 0 ]; then hint "CDP port 9222 CLOSED on host. Ensure Chrome started with --remote-debugging-port=9222"; fi'
 	@section "HTTP Probes"
 	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "curl app /" bash -lc "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000 || true"'
 	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "curl cdp /json/version" bash -lc "curl -s -o /dev/null -w '%{http_code}' http://localhost:9222/json/version || true"'
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; code=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 || true); if [ "$$code" = "000" ]; then hint "App probe: NG (no response). Next: make dev-up, then make dev-logs"; else kv "App probe" "OK ($$code)"; fi'
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; code=$$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9222/json/version || true); if [ "$$code" = "000" ]; then hint "CDP probe: NG (no response). Next: make start-chrome-cdp or run make dev-up (which launches it)"; else kv "CDP probe" "OK ($$code)"; fi'
 	@section "CDP Diagnostics"
-	@$(MAKE) -C $(MAKEFILE_DIR) cdp-check
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; if [ -f scripts/check-cdp.mjs ]; then run_cmd "node scripts/check-cdp.mjs" node scripts/check-cdp.mjs; else hint "Skipping deep CDP check (repo dir unresolved). Running lightweight probes."; run_cmd "curl cdp /json/version (light)" bash -lc "curl -sSf http://localhost:9222/json/version || true"; run_cmd "ss -ltnp :9222 (light)" bash -lc "ss -ltnp 2>/dev/null | grep \":9222\" || true"; fi'
 	@section "Status"
-	@$(MAKE) -C $(MAKEFILE_DIR) status
+	@/usr/bin/env bash -lc '. scripts/make-helpers.sh; { echo "=== Dev3000 Status ==="; echo ""; echo "Docker Containers:"; docker compose ps; echo ""; echo "Chrome CDP:"; if curl -s http://localhost:9222/json/version >/dev/null 2>&1; then echo "  ✅ Chrome running with CDP on port 9222 (http://localhost:9222)"; else echo "  ❌ Chrome CDP not accessible (http://localhost:9222)"; fi; echo ""; echo "CDP Integration:"; if docker ps --format "{{.Names}}" | grep -q "^dev3000$"; then CDP_ENV=$$(docker inspect -f "{{range .Config.Env}}{{println .}}{{end}}" dev3000 2>/dev/null | awk -F= '\''$1=="DEV3000_CDP_URL"{print $2; exit}'\''); if [ -n "$$CDP_ENV" ]; then echo "  ✅ Container configured with CDP URL"; echo "  URL: $$CDP_ENV"; else echo "  ⚠️  Container running without explicit CDP URL (auto-detect mode)"; fi; else echo "  ❌ Dev3000 container not running"; fi; }'
 	@END_TS=$$(date +%s); ELAPSED=$$((END_TS-START_TS)); echo "[RUN] End:   $$(date '+%Y-%m-%d %H:%M:%S') (elapsed: $${ELAPSED}s)"
 
 ## ========== Log Utilities ==========
@@ -577,6 +580,56 @@ test-shellspec: ## Run ShellSpec suite for Make targets (e.g., make test-shellsp
 test-all: ## Run both Node tests and ShellSpec
 	@$(MAKE) test
 	@$(MAKE) test-shellspec $(if $(ARGS),ARGS="$(ARGS)")
+
+## ========== Makefile Linting ==========
+
+install-checkmake: ## Install checkmake Makefile linter (tries system/go/vendor)
+	@. scripts/make-helpers.sh
+	@# 1) If already available, show version
+	@if command -v checkmake >/dev/null 2>&1; then \
+		run_cmd "checkmake --version" checkmake --version; \
+		exit 0; \
+	fi
+	@# 2) Try apt (Ubuntu/Debian)
+	@if command -v apt-get >/dev/null 2>&1; then \
+		if [ -z "$$NON_INTERACTIVE" ]; then hint "Installing checkmake via apt-get (may require sudo)"; fi; \
+		/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "apt-get install checkmake" bash -lc "sudo apt-get update && sudo apt-get install -y checkmake"' && exit 0 || true; \
+	fi; \
+	# 3) Ensure Go exists (optional auto-install on apt systems)
+	if ! command -v go >/dev/null 2>&1; then \
+		if command -v apt-get >/dev/null 2>&1; then \
+			if confirm "Go toolchain not found. Install golang-go now?"; then \
+				/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "apt-get install golang-go" bash -lc "sudo apt-get update && sudo apt-get install -y golang-go"' || true; \
+			fi; \
+		fi; \
+	fi; \
+	# 4) Try Go install to local tools dir
+	TOOLS=.tools/checkmake/bin; mkdir -p "$$TOOLS"; \
+	if command -v go >/dev/null 2>&1; then \
+		/usr/bin/env bash -lc '. scripts/make-helpers.sh; run_cmd "go install checkmake" bash -lc "GOBIN=\"$$PWD/.tools/checkmake/bin\" go install github.com/mrtazz/checkmake/cmd/checkmake@latest"'; \
+		if [ -x "$$TOOLS/checkmake" ]; then echo "Installed: $$TOOLS/checkmake"; exit 0; fi; \
+	fi; \
+	echo "❌ Failed to install checkmake automatically."; \
+	echo "   Try one of:"; \
+	echo "     - sudo apt-get install -y checkmake"; \
+	echo "     - go install github.com/mrtazz/checkmake/cmd/checkmake@latest"; \
+	echo "     - or install a prebuilt binary from GitHub releases"; \
+	exit 1
+
+lint-make: ## Lint Makefile with checkmake (installs if needed)
+	@. scripts/make-helpers.sh
+	@# Ensure we have a usable binary (system or vendored)
+	@CHECKMAKE_BIN=$$(command -v checkmake 2>/dev/null || echo "$$PWD/.tools/checkmake/bin/checkmake"); \
+		if [ ! -x "$$CHECKMAKE_BIN" ]; then \
+			$(MAKE) -s install-checkmake || true; \
+			CHECKMAKE_BIN=$$(command -v checkmake 2>/dev/null || echo "$$PWD/.tools/checkmake/bin/checkmake"); \
+		fi; \
+		if [ ! -x "$$CHECKMAKE_BIN" ]; then \
+			hint "checkmake not available. Install with: make install-checkmake"; \
+			exit 0; \
+		fi; \
+		echo "Running: $$CHECKMAKE_BIN Makefile"; \
+		"$$CHECKMAKE_BIN" Makefile || true
 
 ## ========== Testing (lightweight) ==========
 
