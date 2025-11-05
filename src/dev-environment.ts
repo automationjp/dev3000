@@ -1,4 +1,3 @@
-import { type ChildProcess, execSync, spawn } from "node:child_process"
 import chalk from "chalk"
 import {
   appendFileSync,
@@ -14,6 +13,7 @@ import {
   unlinkSync,
   writeFileSync
 } from "fs"
+import { type ChildProcess, execSync, spawn } from "node:child_process"
 import ora from "ora"
 import { homedir, tmpdir } from "os"
 import { dirname, join } from "path"
@@ -727,19 +727,47 @@ export class DevEnvironment {
       const ports = [this.options.port, this.options.mcpPort]
 
       for (const port of ports) {
-        // Try lsof first (traditional method)
-        const result = await new Promise<string>((resolve) => {
-          const proc = spawn("lsof", ["-ti", `:${port}`], { stdio: "pipe" })
+        let processFound = false
+
+        // Try fuser first (most reliable on Alpine Linux, especially for IPv6 sockets)
+        const fuserResult = await new Promise<string>((resolve) => {
+          const proc = spawn("fuser", [`${port}/tcp`], { stdio: "pipe" })
           let output = ""
           proc.stdout?.on("data", (data) => {
+            output += data.toString()
+          })
+          proc.stderr?.on("data", (data) => {
             output += data.toString()
           })
           proc.on("exit", () => resolve(output.trim()))
           proc.on("error", () => resolve(""))
         })
 
-        // If lsof found no processes, try HTTP health check as fallback
-        if (!result) {
+        if (fuserResult?.match(/\b\d+\b/)) {
+          // fuser found a process (output contains PID)
+          this.debugLog(`Health check: fuser found process on port ${port}`)
+          processFound = true
+        } else {
+          // Try lsof as fallback (traditional method)
+          const lsofResult = await new Promise<string>((resolve) => {
+            const proc = spawn("lsof", ["-ti", `:${port}`], { stdio: "pipe" })
+            let output = ""
+            proc.stdout?.on("data", (data) => {
+              output += data.toString()
+            })
+            proc.on("exit", () => resolve(output.trim()))
+            proc.on("error", () => resolve(""))
+          })
+
+          if (lsofResult) {
+            this.debugLog(`Health check: lsof found process on port ${port}`)
+            processFound = true
+          }
+        }
+
+        // If both fuser and lsof found no processes, try HTTP health check as final fallback
+        if (!processFound) {
+          this.debugLog(`Health check: Both fuser and lsof failed for port ${port}, trying HTTP fallback`)
           try {
             const http = await import("node:http")
             const isListening = await new Promise<boolean>((resolve) => {
@@ -762,6 +790,7 @@ export class DevEnvironment {
               )
               return false
             }
+            this.debugLog(`Health check: HTTP fallback succeeded for port ${port}`)
           } catch (httpError) {
             this.debugLog(`Health check HTTP fallback failed for port ${port}: ${httpError}`)
             this.fileLogger.log("server", `Health check failed: Critical process on port ${port} is no longer running`)
@@ -780,16 +809,21 @@ export class DevEnvironment {
   }
 
   private startHealthCheck() {
-    // Start health checks every 10 seconds
+    // Event-driven health check: Start immediately after server is ready
+    // No grace period needed since we already waited for server startup via logs
+    const healthCheckIntervalMs = 10000 // 10 seconds
+
+    if (this.isShuttingDown) return // Don't start if already shutting down
+
+    this.debugLog("Health check timer started (10 second intervals, event-driven after server ready)")
+
     this.healthCheckTimer = setInterval(async () => {
       const isHealthy = await this.checkProcessHealth()
       if (!isHealthy) {
         console.log(chalk.yellow("⚠️ Critical processes no longer detected. Shutting down gracefully..."))
         this.gracefulShutdown()
       }
-    }, 10000) // 10 seconds
-
-    this.debugLog("Health check timer started (10 second intervals)")
+    }, healthCheckIntervalMs)
   }
 
   private stopHealthCheck() {
@@ -2419,42 +2453,103 @@ export class DevEnvironment {
     const killPortProcess = async (port: string, name: string) => {
       try {
         const { spawn } = await import("child_process")
-        const killProcess = spawn("sh", ["-c", `lsof -ti:${port} | xargs kill -9`], { stdio: "inherit" })
+
+        // Try fuser first (more reliable on Alpine Linux)
+        const fuserProcess = spawn("fuser", ["-k", "-KILL", `${port}/tcp`], { stdio: "pipe" })
+        let fuserError = ""
+
+        fuserProcess.stderr?.on("data", (data) => {
+          fuserError += data.toString()
+        })
+
         return new Promise<void>((resolve) => {
-          killProcess.on("exit", (code) => {
-            if (code === 0) {
-              console.log(chalk.green(`✅ Killed ${name} on port ${port}`))
+          fuserProcess.on("exit", (code) => {
+            if (code === 0 || fuserError.includes("killed")) {
+              // fuser successfully killed process
+              if (!this.options.tui) {
+                console.log(chalk.green(`✅ Killed ${name} on port ${port}`))
+              }
+              this.debugLog(`fuser killed processes on port ${port}`)
+              resolve()
+            } else if (fuserError.includes("No process specification given") || fuserError.includes("Cannot stat")) {
+              // No process using the port
+              this.debugLog(`No processes found on port ${port} (fuser)`)
+              resolve()
+            } else {
+              // fuser failed, try lsof fallback
+              this.debugLog(`fuser failed (code ${code}), trying lsof fallback`)
+
+              const findPids = spawn("lsof", ["-ti", `:${port}`], { stdio: "pipe" })
+              let pidsOutput = ""
+
+              findPids.stdout?.on("data", (data) => {
+                pidsOutput += data.toString()
+              })
+
+              findPids.on("exit", (lsofCode) => {
+                const pids = pidsOutput.trim()
+                if (lsofCode === 0 && pids) {
+                  // Found PIDs with lsof, now kill them
+                  this.debugLog(`Found PIDs on port ${port}: ${pids.replace(/\n/g, ", ")}`)
+                  const killProcess = spawn("sh", ["-c", `kill -9 ${pids.replace(/\n/g, " ")}`], { stdio: "inherit" })
+                  killProcess.on("exit", (killCode) => {
+                    if (killCode === 0) {
+                      if (!this.options.tui) {
+                        console.log(chalk.green(`✅ Killed ${name} on port ${port}`))
+                      }
+                    }
+                    resolve()
+                  })
+                } else {
+                  // No PIDs found with lsof either
+                  this.debugLog(`No processes found on port ${port} (lsof)`)
+                  resolve()
+                }
+              })
             }
-            resolve()
           })
         })
       } catch (_error) {
-        console.log(chalk.gray(`⚠️ Could not kill ${name} on port ${port}`))
+        if (!this.options.tui) {
+          console.log(chalk.gray(`⚠️ Could not kill ${name} on port ${port}`))
+        }
       }
     }
 
     // Kill app server only (MCP server remains as singleton)
-    console.log(chalk.cyan("🔄 Killing app server..."))
+    if (!this.options.tui) {
+      console.log(chalk.cyan("🔄 Killing app server..."))
+    }
     await killPortProcess(this.options.port, "your app server")
 
     // Shutdown CDP monitor if it was started
     if (this.cdpMonitor) {
       try {
-        console.log(chalk.cyan("🔄 Closing CDP monitor..."))
+        if (!this.options.tui) {
+          console.log(chalk.cyan("🔄 Closing CDP monitor..."))
+        }
         await this.cdpMonitor.shutdown()
-        console.log(chalk.green("✅ CDP monitor closed"))
+        if (!this.options.tui) {
+          console.log(chalk.green("✅ CDP monitor closed"))
+        }
       } catch (_error) {
-        console.log(chalk.gray("⚠️ CDP monitor shutdown failed"))
+        if (!this.options.tui) {
+          console.log(chalk.gray("⚠️ CDP monitor shutdown failed"))
+        }
       }
     }
 
-    console.log(chalk.red(`❌ ${this.options.commandName} exited due to server failure`))
+    if (!this.options.tui) {
+      console.log(chalk.red(`❌ ${this.options.commandName} exited due to server failure`))
+    }
     const projectName = getProjectName()
-    console.log(
-      chalk.yellow(
-        `Check the logs at ~/.d3k/logs/${projectName}-d3k.log for errors. Feeling like helping? Run dev3000 --debug and file an issue at https://github.com/vercel-labs/dev3000/issues`
+    if (!this.options.tui) {
+      console.log(
+        chalk.yellow(
+          `Check the logs at ~/.d3k/logs/${projectName}-d3k.log for errors. Feeling like helping? Run dev3000 --debug and file an issue at https://github.com/vercel-labs/dev3000/issues`
+        )
       )
-    )
+    }
     process.exit(1)
   }
 
@@ -2619,43 +2714,76 @@ export class DevEnvironment {
       try {
         const { spawn } = await import("child_process")
 
-        // First, find PIDs on the port
-        const findPids = spawn("lsof", ["-ti", `:${port}`], { stdio: "pipe" })
-        let pidsOutput = ""
+        // Try fuser first (more reliable on Alpine Linux)
+        const fuserProcess = spawn("fuser", ["-k", "-KILL", `${port}/tcp`], { stdio: "pipe" })
+        let fuserError = ""
 
-        findPids.stdout?.on("data", (data) => {
-          pidsOutput += data.toString()
+        fuserProcess.stderr?.on("data", (data) => {
+          fuserError += data.toString()
         })
 
         return new Promise<void>((resolve) => {
-          findPids.on("exit", (code) => {
-            if (code === 0 && pidsOutput.trim()) {
-              // Found PIDs, now kill them
-              const pids = pidsOutput.trim().split("\n").filter(Boolean)
-              this.debugLog(`Found PIDs on port ${port}: [${pids.join(", ")}]`)
-
-              // Kill each PID individually
-              let killedCount = 0
-              for (const pid of pids) {
-                try {
-                  process.kill(parseInt(pid.trim(), 10), "SIGKILL")
-                  killedCount++
-                  this.debugLog(`Killed PID ${pid} on port ${port}`)
-                } catch (error) {
-                  this.debugLog(`Failed to kill PID ${pid}: ${error}`)
-                }
+          fuserProcess.on("exit", (code) => {
+            if (code === 0 || fuserError.includes("killed")) {
+              // fuser successfully killed process
+              if (!this.options.tui) {
+                console.log(chalk.green(`✅ Killed ${name} on port ${port}`))
               }
-
-              if (killedCount > 0 && !this.options.tui) {
-                console.log(chalk.green(`✅ Killed ${killedCount} ${name} process(es) on port ${port}`))
-              }
-            } else {
-              this.debugLog(`No processes found on port ${port} (exit code: ${code})`)
+              this.debugLog(`fuser killed processes on port ${port}`)
+              resolve()
+            } else if (
+              code !== 0 &&
+              (fuserError.includes("No process specification given") || fuserError.includes("Cannot stat"))
+            ) {
+              // No process using the port
+              this.debugLog(`No processes found on port ${port} (fuser)`)
               if (!this.options.tui) {
                 console.log(chalk.gray(`ℹ️ No ${name} running on port ${port}`))
               }
+              resolve()
+            } else {
+              // fuser failed, try lsof fallback
+              this.debugLog(`fuser failed (code ${code}), trying lsof fallback`)
+
+              const findPids = spawn("lsof", ["-ti", `:${port}`], { stdio: "pipe" })
+              let pidsOutput = ""
+
+              findPids.stdout?.on("data", (data) => {
+                pidsOutput += data.toString()
+              })
+
+              findPids.on("exit", (lsofCode) => {
+                if (lsofCode === 0 && pidsOutput.trim()) {
+                  // Found PIDs with lsof, now kill them
+                  const pids = pidsOutput.trim().split("\n").filter(Boolean)
+                  this.debugLog(`Found PIDs on port ${port}: [${pids.join(", ")}]`)
+
+                  // Kill each PID individually
+                  let killedCount = 0
+                  for (const pid of pids) {
+                    try {
+                      process.kill(parseInt(pid.trim(), 10), "SIGKILL")
+                      killedCount++
+                      this.debugLog(`Killed PID ${pid} on port ${port}`)
+                    } catch (error) {
+                      this.debugLog(`Failed to kill PID ${pid}: ${error}`)
+                    }
+                  }
+
+                  if (killedCount > 0 && !this.options.tui) {
+                    console.log(chalk.green(`✅ Killed ${killedCount} ${name} process(es) on port ${port}`))
+                  }
+                  resolve()
+                } else {
+                  // No PIDs found with lsof either
+                  this.debugLog(`No processes found on port ${port} (lsof, exit code: ${lsofCode})`)
+                  if (!this.options.tui) {
+                    console.log(chalk.gray(`ℹ️ No ${name} running on port ${port}`))
+                  }
+                  resolve()
+                }
+              })
             }
-            resolve()
           })
         })
       } catch (error) {

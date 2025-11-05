@@ -17,12 +17,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v3
         with:
-          version: 10.18.3
+          version: 10.20.0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Run ShellSpec
-        run: bash scripts/run-shellspec.sh -- --format junit --output reports/shellspec/junit.xml
+        run: |
+          mkdir -p reports/shellspec
+          bash scripts/run-shellspec.sh -f junit > reports/shellspec/junit.xml
         env:
           NON_INTERACTIVE: '1'
       - uses: actions/upload-artifact@v4

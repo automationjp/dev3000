@@ -52,6 +52,10 @@ services:
       # Bind-mount only source dirs needed for HMR to avoid WSL2 permission issues on root
       - ./frontend/app:/app/frontend/app:delegated
       - ./frontend/public:/app/frontend/public:delegated
+      # Share dev3000 runtime sources so host edits take effect immediately
+      - ./frontend/.dev3000:/app/frontend/.dev3000:delegated
+      # Persist dev3000 session/log data across restarts (named volume avoids host permission issues)
+      - dev3000_d3k:/root/.d3k
       # Keep build artifacts and deps inside container
       - /app/frontend/node_modules
       - /app/frontend/.next
@@ -121,3 +125,7 @@ services:
 networks:
   default:
     driver: bridge
+
+volumes:
+  dev3000_d3k:
+    driver: local
