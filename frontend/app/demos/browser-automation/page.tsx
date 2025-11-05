@@ -131,9 +131,9 @@ function ActionCard({
       <h3 className="text-lg font-semibold text-cyan-400 mb-2 font-mono">{title}</h3>
       <p className="text-gray-300 text-sm mb-4">{description}</p>
       <div className="flex flex-wrap gap-2">
-        {actions.map((action) => (
+        {actions.map((action, index) => (
           <span
-            key={action}
+            key={`${action}-${index}`}
             className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-full text-xs"
           >
             {action}

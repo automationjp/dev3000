@@ -203,9 +203,9 @@ dev-rebuild: ## Rebuild and restart Docker environment
 sync-dev3000-local: ## Copy local dev3000 source (mcp-server) into frontend/.dev3000 for container build
 	@echo "[sync] Copying mcp-server sources ..."
 	@mkdir -p frontend/.dev3000/mcp-server/app/mcp frontend/.dev3000/mcp-server/app/api/orchestrator
-	@cp -f mcp-server/app/mcp/route.ts frontend/.dev3000/mcp-server/app/mcp/route.ts || true
-	@cp -f mcp-server/app/mcp/client-manager.ts frontend/.dev3000/mcp-server/app/mcp/client-manager.ts || true
-	@cp -f mcp-server/app/api/orchestrator/route.ts frontend/.dev3000/mcp-server/app/api/orchestrator/route.ts || true
+	@cp -f mcp-server/app/mcp/route.ts frontend/.dev3000/mcp-server/app/mcp/route.ts || echo "⚠️  Warning: Failed to copy route.ts"
+	@cp -f mcp-server/app/mcp/client-manager.ts frontend/.dev3000/mcp-server/app/mcp/client-manager.ts || echo "⚠️  Warning: Failed to copy client-manager.ts"
+	@cp -f mcp-server/app/api/orchestrator/route.ts frontend/.dev3000/mcp-server/app/api/orchestrator/route.ts || echo "⚠️  Warning: Failed to copy orchestrator route.ts"
 	@echo "[sync] Done"
 
 dev-rebuild-fast: ## Fast rebuild using cache (for minor changes)

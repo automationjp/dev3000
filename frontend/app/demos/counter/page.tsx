@@ -33,7 +33,7 @@ export default function CounterDemo() {
             <div className="flex gap-4 justify-center flex-wrap">
               <button
                 type="button"
-                onClick={() => setCount(count - 1)}
+                onClick={() => setCount((c) => c - 1)}
                 className="px-8 py-4 bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-400 rounded-lg font-semibold transition-all duration-300 hover:scale-105"
               >
                 Decrement
@@ -47,7 +47,7 @@ export default function CounterDemo() {
               </button>
               <button
                 type="button"
-                onClick={() => setCount(count + 1)}
+                onClick={() => setCount((c) => c + 1)}
                 className="px-8 py-4 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 text-cyan-400 rounded-lg font-semibold transition-all duration-300 hover:scale-105"
               >
                 Increment
@@ -59,42 +59,42 @@ export default function CounterDemo() {
               <div className="flex gap-2 flex-wrap justify-center">
                 <button
                   type="button"
-                  onClick={() => setCount(count + 10)}
+                  onClick={() => setCount((c) => c + 10)}
                   className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-400 rounded text-sm transition-all"
                 >
                   +10
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCount(count + 100)}
+                  onClick={() => setCount((c) => c + 100)}
                   className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-400 rounded text-sm transition-all"
                 >
                   +100
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCount(count - 10)}
+                  onClick={() => setCount((c) => c - 10)}
                   className="px-4 py-2 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-orange-400 rounded text-sm transition-all"
                 >
                   -10
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCount(count - 100)}
+                  onClick={() => setCount((c) => c - 100)}
                   className="px-4 py-2 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-orange-400 rounded text-sm transition-all"
                 >
                   -100
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCount(count * 2)}
+                  onClick={() => setCount((c) => c * 2)}
                   className="px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-400 rounded text-sm transition-all"
                 >
                   ×2
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCount(Math.floor(count / 2))}
+                  onClick={() => setCount((c) => Math.floor(c / 2))}
                   className="px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-400 rounded text-sm transition-all"
                 >
                   ÷2

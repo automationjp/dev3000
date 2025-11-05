@@ -1,4 +1,3 @@
-import { type ChildProcess, execSync, spawn } from "node:child_process"
 import chalk from "chalk"
 import {
   appendFileSync,
@@ -14,6 +13,7 @@ import {
   unlinkSync,
   writeFileSync
 } from "fs"
+import { type ChildProcess, execSync, spawn } from "node:child_process"
 import ora from "ora"
 import { homedir, tmpdir } from "os"
 import { dirname, join } from "path"
@@ -2466,7 +2466,9 @@ export class DevEnvironment {
           fuserProcess.on("exit", (code) => {
             if (code === 0 || fuserError.includes("killed")) {
               // fuser successfully killed process
-              console.log(chalk.green(`✅ Killed ${name} on port ${port}`))
+              if (!this.options.tui) {
+                console.log(chalk.green(`✅ Killed ${name} on port ${port}`))
+              }
               this.debugLog(`fuser killed processes on port ${port}`)
               resolve()
             } else if (fuserError.includes("No process specification given") || fuserError.includes("Cannot stat")) {
@@ -2492,7 +2494,9 @@ export class DevEnvironment {
                   const killProcess = spawn("sh", ["-c", `kill -9 ${pids.replace(/\n/g, " ")}`], { stdio: "inherit" })
                   killProcess.on("exit", (killCode) => {
                     if (killCode === 0) {
-                      console.log(chalk.green(`✅ Killed ${name} on port ${port}`))
+                      if (!this.options.tui) {
+                        console.log(chalk.green(`✅ Killed ${name} on port ${port}`))
+                      }
                     }
                     resolve()
                   })
@@ -2506,32 +2510,46 @@ export class DevEnvironment {
           })
         })
       } catch (_error) {
-        console.log(chalk.gray(`⚠️ Could not kill ${name} on port ${port}`))
+        if (!this.options.tui) {
+          console.log(chalk.gray(`⚠️ Could not kill ${name} on port ${port}`))
+        }
       }
     }
 
     // Kill app server only (MCP server remains as singleton)
-    console.log(chalk.cyan("🔄 Killing app server..."))
+    if (!this.options.tui) {
+      console.log(chalk.cyan("🔄 Killing app server..."))
+    }
     await killPortProcess(this.options.port, "your app server")
 
     // Shutdown CDP monitor if it was started
     if (this.cdpMonitor) {
       try {
-        console.log(chalk.cyan("🔄 Closing CDP monitor..."))
+        if (!this.options.tui) {
+          console.log(chalk.cyan("🔄 Closing CDP monitor..."))
+        }
         await this.cdpMonitor.shutdown()
-        console.log(chalk.green("✅ CDP monitor closed"))
+        if (!this.options.tui) {
+          console.log(chalk.green("✅ CDP monitor closed"))
+        }
       } catch (_error) {
-        console.log(chalk.gray("⚠️ CDP monitor shutdown failed"))
+        if (!this.options.tui) {
+          console.log(chalk.gray("⚠️ CDP monitor shutdown failed"))
+        }
       }
     }
 
-    console.log(chalk.red(`❌ ${this.options.commandName} exited due to server failure`))
+    if (!this.options.tui) {
+      console.log(chalk.red(`❌ ${this.options.commandName} exited due to server failure`))
+    }
     const projectName = getProjectName()
-    console.log(
-      chalk.yellow(
-        `Check the logs at ~/.d3k/logs/${projectName}-d3k.log for errors. Feeling like helping? Run dev3000 --debug and file an issue at https://github.com/vercel-labs/dev3000/issues`
+    if (!this.options.tui) {
+      console.log(
+        chalk.yellow(
+          `Check the logs at ~/.d3k/logs/${projectName}-d3k.log for errors. Feeling like helping? Run dev3000 --debug and file an issue at https://github.com/vercel-labs/dev3000/issues`
+        )
       )
-    )
+    }
     process.exit(1)
   }
 

@@ -29,7 +29,7 @@ export async function addTodo(formData: FormData) {
   await new Promise((resolve) => setTimeout(resolve, 300));
 
   const todo: Todo = {
-    id: Math.random().toString(36).substring(7),
+    id: crypto.randomUUID(),
     text: text.trim(),
     completed: false,
     createdAt: new Date(),

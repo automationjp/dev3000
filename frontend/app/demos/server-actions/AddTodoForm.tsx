@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { addTodo } from "./actions";
 
@@ -18,19 +19,20 @@ function SubmitButton() {
 }
 
 export default function AddTodoForm() {
+  const formRef = useRef<HTMLFormElement>(null);
+
   async function handleSubmit(formData: FormData) {
     const result = await addTodo(formData);
     if (result.error) {
-      alert(result.error);
+      // Consider using a toast notification or inline error message
+      console.error(result.error);
     } else {
-      // Reset form
-      const form = document.getElementById("add-todo-form") as HTMLFormElement;
-      form?.reset();
+      formRef.current?.reset();
     }
   }
 
   return (
-    <form id="add-todo-form" action={handleSubmit} className="flex gap-4">
+    <form ref={formRef} action={handleSubmit} className="flex gap-4">
       <input
         type="text"
         name="text"

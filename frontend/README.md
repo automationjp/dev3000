@@ -317,7 +317,7 @@ When running with dev3000:
    - Interaction replay
 
 3. **MCP Integration**
-   - Next.js builtin MCP at `/_next/mcp`
+   - Next.js built-in MCP at `/_next/mcp`
    - dev3000 MCP at http://localhost:3684
    - Context7 for docs
    - CDP browser access
@@ -341,7 +341,7 @@ module.exports = {
 ### package.json
 
 **Key dependencies:**
-- `next: ^16.0.0` - Next.js 16 with builtin MCP
+- `next: ^16.0.0` - Next.js 16 with built-in MCP
 - `react: ^19.0.0` - React 19 with new hooks
 - `react-dom: ^19.0.0` - React DOM 19
 
