@@ -743,7 +743,7 @@ export class DevEnvironment {
           proc.on("error", () => resolve(""))
         })
 
-        if (fuserResult?.match(/\d+/)) {
+        if (fuserResult?.match(/\b\d+\b/)) {
           // fuser found a process (output contains PID)
           this.debugLog(`Health check: fuser found process on port ${port}`)
           processFound = true

@@ -411,7 +411,7 @@ async function main() {
       "Start-Process",
       "chrome.exe",
       "-ArgumentList",
-      `'--remote-debugging-port=${cdpPort}','--user-data-dir=C:\\temp\\chrome-dev-profile','--no-first-run','--no-default-browser-check','${appUrl}'`
+      `'--remote-debugging-port=${cdpPort}','--remote-debugging-address=0.0.0.0','--user-data-dir=C:\\temp\\chrome-dev-profile','--no-first-run','--no-default-browser-check','${appUrl}'`
     ].join(" ")
     console.log("Detected Windows environment")
     console.log("Running (powershell):", psCmd)
@@ -421,6 +421,7 @@ async function main() {
         "start",
         "chrome.exe",
         `--remote-debugging-port=${cdpPort}`,
+        "--remote-debugging-address=0.0.0.0",
         "--user-data-dir=C:\\temp\\chrome-dev-profile",
         "--no-first-run",
         "--no-default-browser-check",

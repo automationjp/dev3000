@@ -403,7 +403,7 @@ const handler = createMcpHandler(
         })
 
         console.log(
-          `[MCP Orchestrator] Registered proxied tool ${proxiedToolName} from ${mcpName}. Total proxied: ${registeredProxiedTools.size + 1}`
+          `[MCP Orchestrator] Registered proxied tool ${proxiedToolName} from ${mcpName}. Total proxied: ${registeredProxiedTools.size}`
         )
         return true
       } catch (error) {

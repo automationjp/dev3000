@@ -6,10 +6,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const nextConfig = {
   reactStrictMode: true,
   reactCompiler: true,
-  // Cache Components enabled for Next.js 16 stable
-  // In stable 16.0.0, cacheComponents is inside experimental: {}
+  // Cache Components enabled for Next.js 16 canary
+  // In canary versions, cacheComponents is at root level
+  cacheComponents: true,
   experimental: {
-    cacheComponents: true,
     turbopackFileSystemCacheForDev: true
   },
   devIndicators: false,
